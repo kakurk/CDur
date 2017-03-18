@@ -2,25 +2,28 @@
 title: "Memory Cue Duration and Directed Forgetting"
 author: "Kyle Kurkela and Nancy Dennis"
 date: '`r Sys.Date()`'
-output: html_notebook
+output: 
+  html_notebook:
+    code_folding: hide  
+    toc: true
+    toc_float: true
 params:
   datapath: ./data/
 ---
 
-# Load Libraries
+# Initalize
+
+## Loading Libraries
 
 ```{r libraries, message=FALSE, warning=FALSE}
-
 library('tidyverse')
 library('knitr')
 library('tables')
-
 ```
 
-# Load Data
+## Load Data
 
 ```{r load_data}
-
 # Initalize variables
 datapath           <- params$datapath
 ya_raw_data_file   <- paste0(datapath, "ya_raw_data.csv")
@@ -31,36 +34,34 @@ demo_raw_data_file <- paste0(datapath, "demographics.csv")
 df.young        <- read.csv(ya_raw_data_file, quote = "\'")
 df.old          <- read.csv(oa_raw_data_file, quote = "\'")
 df.demographics <- read.csv(demo_raw_data_file, quote = "\'")
-
 ```
 
-# Data Cleaning
+## Data Cleaning
 
-## Demographics
+### Demographics
 
 1. Drop Empty Variables  
 2. Create EDUCATION_yrs variable, which calculates the EDUCATION variable in terms of years of schooling  
 3. Compute a composite Cognitive Assessment variable by calculating the mean (rounded to 2 decimal points) of the each subject's Symbol Search, Digit-Symbol, Arithmetic, Letter-Number Sequencing, and Vocabulary scores 
 
 ```{r clean_demographics_data}
-
 # dropping blank variables; creating EDUCTION_yrs
 df.demographics %>%
   select(-X, -X.1) %>%
   mutate(EDUCATION_yrs = ifelse(EDUCATION == '8th grade', 8,
-                                ifelse(EDUCATION == '9th grade', 9, 
-                                       ifelse(EDUCATION == '10th grade', 10,
-                                              ifelse(EDUCATION == '11th grade', 11,
-                                                     ifelse(EDUCATION == '12th grade', 12,
-                                                            ifelse(EDUCATION == '1 yr college' | EDUCATION == '1 Year college' | EDUCATION == '1 year college', 13,
-                                                                   ifelse(EDUCATION == '2 yrs college' | EDUCATION == '2 Years college' | EDUCATION == '2 years college', 14,
-                                                                          ifelse(EDUCATION == '3 yrs college' | EDUCATION == '3 Years college' | EDUCATION == '3 years college', 15,
-                                                                                 ifelse(EDUCATION == '4 yrs college' | EDUCATION == '4 Years college' | EDUCATION == '4 years college', 16,
-                                                                                        ifelse(EDUCATION == 'Post-grad work', 17,
-                                                                                               ifelse(EDUCATION == 'Masters', 18,
-                                                                                                      ifelse(EDUCATION == 'Doctoral', 20, NA)))))))))))),
+                         ifelse(EDUCATION == '9th grade', 9, 
+                         ifelse(EDUCATION == '10th grade', 10,
+                         ifelse(EDUCATION == '11th grade', 11,
+                         ifelse(EDUCATION == '12th grade', 12,
+                         ifelse(EDUCATION == '1 yr college' | EDUCATION == '1 Year college' | EDUCATION == '1 year college', 13,
+                         ifelse(EDUCATION == '2 yrs college' | EDUCATION == '2 Years college' | EDUCATION == '2 years college', 14,
+                         ifelse(EDUCATION == '3 yrs college' | EDUCATION == '3 Years college' | EDUCATION == '3 years college', 15,
+                         ifelse(EDUCATION == '4 yrs college' | EDUCATION == '4 Years college' | EDUCATION == '4 years college', 16,
+                         ifelse(EDUCATION == 'Post-grad work', 17,
+                         ifelse(EDUCATION == 'Masters', 18,
+                         ifelse(EDUCATION == 'Doctoral', 20, NA)))))))))))),
          Sex = ifelse(Sex == 'F', 'Female', 
-                      ifelse(Sex == 'M', 'Male', NA))) -> df.demographics 
+               ifelse(Sex == 'M', 'Male', NA))) -> df.demographics 
 
 # Force Age and Sex variables into the all capitalization variable name convention
 colnames(df.demographics)[10:11] <- c("AGE", "SEX")
@@ -68,46 +69,44 @@ colnames(df.demographics)[10:11] <- c("AGE", "SEX")
 # Calculating Cognitive Assessment Composite Score
 df.demographics %>%
   rowwise() %>%
-  mutate(COG_ASSESS = mean(c(SYMBOLSEARCH, DIGITSYMBOL, DIGITSPAN, ARITHMETIC, LNSEQUENCING, VOCAB), na.rm = TRUE),
-         COG_ASSESS = round(COG_ASSESS, digits = 2)) -> df.demographics
-
+  mutate(BASELINE_COGITIVE_ABILITY = mean(c(SYMBOLSEARCH, DIGITSYMBOL, DIGITSPAN, 
+                                            ARITHMETIC, LNSEQUENCING, VOCAB), na.rm = TRUE),
+         BASELINE_COGITIVE_ABILITY = round(BASELINE_COGITIVE_ABILITY, digits = 2)) -> df.demographics
 ```
 
-## Raw Experimental Data
+### Raw Experimental Data
 
 1. Concatenate the young and old data, creating a new factor AgeGroup  
 2. Drop the extra jitter varaiable  
 3. Make the numeric coding schemes factors with informative levels  
 
 ```{r concatenate_and_clean, warning=FALSE}
-
 # concatenate
 df.all <- bind_rows(list(df.young, df.old), .id = "AgeGroup")
 
-# cleans
+# clean
 df.all %>%
   select(-jit.1) %>%
   mutate(
     enctype  = ifelse(enctype == 1, '1 Second',
-                    ifelse(enctype == 2, '3 Seconds', 
-                           ifelse(enctype == 3, '5 Seconds', 'Lure'))),
+               ifelse(enctype == 2, '3 Seconds', 
+               ifelse(enctype == 3, '5 Seconds', 'Lure'))),
     enctype  = factor(enctype),
     score    = ifelse(score == 1, 'Remember',
-                     ifelse(score == 2, 'Know',
-                            ifelse(score == 3, 'New', 'No Response'))),
+               ifelse(score == 2, 'Know',
+               ifelse(score == 3, 'New', 'No Response'))),
     score    = factor(score),
     Response = ifelse(Response == 2, 'B Key',
-                      ifelse(Response == 22, 'V Key',
-                             ifelse(Response == 14, 'N Key', 'No Response'))),
+               ifelse(Response == 22, 'V Key',
+               ifelse(Response == 14, 'N Key', 'No Response'))),
     Response = factor(Response),
     type     = ifelse(type == 0, 'To Be Forgotten', 
-                      ifelse(type == 1, 'To Be Remembered', 'Lure')),
+               ifelse(type == 1, 'To Be Remembered', 'Lure')),
     type     = factor(type),
     AgeGroup = ifelse(AgeGroup == 1, 'Young', 
-                      ifelse(AgeGroup == 2, 'Old', NA)),
+               ifelse(AgeGroup == 2, 'Old', NA)),
     AgeGroup = factor(AgeGroup)
   ) -> df.all
-
 ```
 
 # Combine Demographics and Experimental Data
@@ -120,28 +119,44 @@ df.all %>%
 
 # Figure 1: Demographics Summary Table
 
-```{r demographics_summary}
+```{r demographics_summary, warning=FALSE}
 
-df.CDur %>%
+df.demographics %>%
+  mutate(
+    AgeGroup = factor(ifelse(AGE > 30, 'Old Adults', 'Younger Adults'))
+  ) %>%
+  select(-SUBJECT) %>%
   group_by(AgeGroup) %>%
-  summarise_at(vars(AGE, MMSE, SYMBOLSEARCH, DIGITSYMBOL, DIGITSPAN, ARITHMETIC, LNSEQUENCING, VOCAB, COG_ASSESS), funs(mean), na.rm = TRUE) %>%
-  mutate_at(vars(-AgeGroup), round, digits = 2) %>%
-  gather(key = Measure, value = Mean, AGE:COG_ASSESS, factor_key = TRUE) -> table1
+  summarize_if(is.numeric, mean, na.rm = TRUE) %>%
+  mutate_if(is.numeric, round, digits = 2) %>%
+  gather(key=Measure, value=Mean, -AgeGroup) ->  temp
 
-# filter(table1, AgeGroup == "Young") %>%
-#   select(Measure, Mean) -> Young
-# filter(table1, AgeGroup == "Old") %>%
-#   select(Measure, Mean) -> Old
-# 
-# table1 <- inner_join(Young, Old, by = c('Measure'), suffix = c('_Young', '_Old'))
+  temp %>%
+   filter(AgeGroup == "Old Adults") -> OAs
+  temp %>%
+    filter(AgeGroup == "Younger Adults") -> YAs
+  
+table1.demographics  <- left_join(select(OAs, -AgeGroup), select(YAs, -AgeGroup), by = c("Measure"), suffix = c("_OA", "_YA"), "-AgeGroup")
 
-# ftable(table1, col.vars = c(1), row.var =  )
+names(table1.demographics) <- c("", "OA", "YA")
+
+table1.demographics
+
+kable(table1.demographics, format = "latex")
+
 
 ```
 
 ```{r}
+heading <- "Variable Heading"
+tabular( (Sepal.Length+Sepal.Width) ~ 
+         (Heading(heading, character.only = TRUE)*mean + (S.D.=sd)), 
+         data=iris )
 
-
+a <- rnorm(9)
+is.numeric(a)
+df$Value
+is.numeric(demographics$MMSE)
 ```
 
 
