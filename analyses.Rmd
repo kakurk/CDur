@@ -18,7 +18,6 @@ params:
 ```{r libraries, message=FALSE, warning=FALSE}
 library('tidyverse')
 library('knitr')
-library('tables')
 ```
 
 ## Load Data
@@ -109,14 +108,6 @@ df.all %>%
   ) -> df.all
 ```
 
-# Combine Demographics and Experimental Data
-
-```{r add_demographics, warning=FALSE}
-
-(df.CDur <- left_join(df.all, df.demographics, by = c("subject" = "SUBJECT")))
-
-```
-
 # Figure 1: Demographics Summary Table
 
 ```{r demographics_summary, warning=FALSE}
@@ -138,25 +129,17 @@ df.demographics %>%
   
 table1.demographics  <- left_join(select(OAs, -AgeGroup), select(YAs, -AgeGroup), by = c("Measure"), suffix = c("_OA", "_YA"), "-AgeGroup")
 
-names(table1.demographics) <- c("", "OA", "YA")
+names(table1.demographics) <- c("Measure", "Older Adults", "Younger Adults")
+
+table1.demographics[9,1] <- "EDUCATION"
+table1.demographics[10,1] <- "COMPOSITE"
 
 table1.demographics
-
-kable(table1.demographics, format = "latex")
-
 
 ```
 
 ```{r}
-heading <- "Variable Heading"
-tabular( (Sepal.Length+Sepal.Width) ~ 
-         (Heading(heading, character.only = TRUE)*mean + (S.D.=sd)), 
-         data=iris )
 
-a <- rnorm(9)
-is.numeric(a)
-df$Value
-is.numeric(demographics$MMSE)
 ```
 
 
