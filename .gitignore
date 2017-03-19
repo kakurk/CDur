@@ -1,1 +1,9 @@
 *.nb.html
+*-blx.bib
+*tex
+*.gz
+*.log
+*.fff
+*.bbl
+*.blg
+*.xml
