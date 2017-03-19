@@ -22,7 +22,7 @@ library('knitr')
 
 ## Load Data
 
-```{r load_data}
+```{r load}
 # Initalize variables
 datapath           <- params$datapath
 ya_raw_data_file   <- paste0(datapath, "ya_raw_data.csv")
@@ -88,8 +88,8 @@ df.all %>%
   select(-jit.1) %>%
   mutate(
     enctype  = ifelse(enctype == 1, '1 Second',
-               ifelse(enctype == 2, '3 Seconds', 
-               ifelse(enctype == 3, '5 Seconds', 'Lure'))),
+               ifelse(enctype == 3, '3 Seconds', 
+               ifelse(enctype == 5, '5 Seconds', 'Lure'))),
     enctype  = factor(enctype),
     score    = ifelse(score == 1, 'Remember',
                ifelse(score == 2, 'Know',
@@ -138,7 +138,44 @@ table1.demographics
 
 ```
 
-```{r}
+```{r replication_ttests}
+
+df.all %>%
+  filter(enctype != "Lure") %>%
+  mutate(enctype = factor(enctype)) %>%
+  group_by(AgeGroup, enctype, type, subject) %>%
+  summarize(MissRate = mean(score == "New")) %>% ungroup() -> df.missrates
+
+df.missrates %>% filter(type == "To Be Forgotten") %>% select(-type) -> TBF.Forgotten
+df.missrates %>% filter(type == "To Be Remembered") %>% select(-type) -> TBR.Forgotten
+
+df.DFeffects <- left_join(TBF.Forgotten, TBR.Forgotten, by = c('AgeGroup','enctype', 'subject'), suffix = c("TBF", "TBR"))
+
+df.DFeffects %>%
+  transmute(
+    AgeGroup = AgeGroup,
+    enctype = enctype,
+    subject = subject,
+    DF.effect = MissRateTBF - MissRateTBR) -> df.DFeffects
+
+# T-Tests by Condition
+onesecond   <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second'], mu = 0)
+threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds'], mu = 0)
+fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds'], mu = 0)
+
+# T-Tests by Age Group
+young.test <- t.test(df.DFeffects$DF.effect[df.DFeffects$AgeGroup == 'Young'], mu = 0)
+old.test   <- t.test(df.DFeffects$DF.effect[df.DFeffects$AgeGroup == 'Old'], mu = 0)
+
+
+# T-Tests by Age Group by Condition
+YA.onesecond   <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second' & df.DFeffects$AgeGroup == 'Young'], mu = 0)
+YA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' & df.DFeffects$AgeGroup == 'Young'], mu = 0)
+YA.fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' & df.DFeffects$AgeGroup == 'Young'], mu = 0)
+
+OA.oneseconds  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
+OA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
+OA.fivesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
 
 ```
 
