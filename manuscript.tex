@@ -1,10 +1,60 @@
-\documentclass[man]{apa6}
+\documentclass[man]{apa6}\usepackage[]{graphicx}\usepackage[]{color}
+%% maxwidth is the original width if it is less than linewidth
+%% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+
+\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.686,0.059,0.569}{#1}}%
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.192,0.494,0.8}{#1}}%
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.678,0.584,0.686}{\textit{#1}}}%
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0.345,0.345,0.345}{#1}}%
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.333,0.667,0.333}{#1}}%
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.737,0.353,0.396}{\textbf{#1}}}%
+\let\hlipl\hlkwb
+
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
+
+\usepackage{alltt}
 
 % Packages
 \usepackage[utf8]{inputenc}
 \usepackage[american]{babel}
 \usepackage{csquotes}
-\usepackage[style=apa,backend=biber]{biblatex}
+\usepackage[backend=bibtex]{biblatex}
 \usepackage{graphicx}
 \graphicspath{{figures/}}
 \DeclareLanguageMapping{american}{american-apa}
@@ -33,6 +83,7 @@ Directed Forgetting Performance in Healthy Aging}
 \authornote{This project was supported by American Federation for Aging Research (AFAR) grant 421-55 2B2G. In addition, my thanks go to Kristina Peterson, former lab manager of the Cognitive Aging and Neuroimaging Lab, undergraduate research assistant Christina Johnson, and former undergraduate research assistants David Hoagey, Matt McGee, and Joanna Zappalla for their assistance with this project.}
 
 % Body of the Document Begins
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
 \begin{document}
 
 % Title Page
@@ -62,11 +113,16 @@ Also relevant to the current study was a study performed by \textcite{gardiner.g
 
 \subsection*{Participants}
 
-Thirty young adults and 33 older adults participated in the study. Three older adults were excluded from all analyses due to: a failure to use all response options, a high depression score as measured by the Geriatric Depression Scale (see below), and a MATLAB error resulting in a failure to record retrieval data. Young adults were Pennsylvania State University undergraduates between the ages of 18 and 23 years (\textit{M} = 19.13 years, SD = 1.41; 25 females) and received class credit for participating. Older adults were Centre County residents between the ages of 61 and 80 years (\textit{M} = 69.47 years, SD = 5.14; 21 female) and were financially compensated for their participation (see Table 1). All participants provided informed consent for the ethical treatment of human participants, approved by the Pennsylvania State University Institutional Review Board.
+
+
+
+
+
+Thirty young adults and 33 older adults participated in the study. Three older adults were excluded from all analyses due to: a failure to use all response options, a high depression score as measured by the Geriatric Depression Scale (see below), and a MATLAB error resulting in a failure to record retrieval data. Young adults were Pennsylvania State University undergraduates between the ages of 18 and 23 years (\textit{M} = 19.13, \textit{SD} = 1.41; 83\% females) and received class credit for participating. Older adults were Centre County residents between the ages of 61 and 80 years (\textit{M} = 69.47, \textit{SD} = 5.14; 70\% female) and were financially compensated for their participation (see Table 1). All participants provided informed consent for the ethical treatment of human participants, approved by the Pennsylvania State University Institutional Review Board.
 
 \subsection*{Materials}
 
-Stimuli consisted of 364 words obtained from the MRC Psycholinguistic Database \parencite{coltheart1981}. The stimuli had a mean \textcite[]{kuvcera.nelson1967} written frequency of 108.65 (SD = 56.41), and a mean word concreteness \parencite{spreen.schulz1966,gilhooly.logie1980} of 420.49 (SD = 101.73). Two hundred and forty words were used during encoding, separated equally into 3 duration conditions (1000, 3000, and 5000 ms). The remaining 120 words were used as foils during the recognition test. All words were presented in the center of the computer screen in uppercase white letters on a black background. Memory cues were also presented centrally on a black background. To-Be-Remembered (TBR) cues consisted of five green pound signs, while To-Be-Forgotten (TBF) cues consisted of five red pound signs. The order of TBR and TBF cues was pseudo-random such that no more than three of each trial-type were ever presented in a row. Equal numbers of TBR and TBF cues were presented in each cue duration condition. The remaining 4 words were used to practice the task prior to the encoding phase.
+Stimuli consisted of 364 words obtained from the MRC Psycholinguistic Database \parencite{coltheart1981}. The stimuli had a mean \textcite[]{kuvcera.nelson1967} written frequency of 108.65 (\textit{SD} = 56.41), and a mean word concreteness \parencite{spreen.schulz1966,gilhooly.logie1980} of 420.49 (\textit{SD} = 101.73). Two hundred and forty words were used during encoding, separated equally into 3 duration conditions (1000, 3000, and 5000 ms). The remaining 120 words were used as foils during the recognition test. All words were presented in the center of the computer screen in uppercase white letters on a black background. Memory cues were also presented centrally on a black background. To-Be-Remembered (TBR) cues consisted of five green pound signs, while To-Be-Forgotten (TBF) cues consisted of five red pound signs. The order of TBR and TBF cues was pseudo-random such that no more than three of each trial-type were ever presented in a row. Equal numbers of TBR and TBF cues were presented in each cue duration condition. The remaining 4 words were used to practice the task prior to the encoding phase.
 
 \subsection*{Procedure}
 
@@ -83,6 +139,14 @@ In the encoding task, participants were presented with a series of words, displa
 Following a 10 min interference task [Arithmetic Test for young adults and Matrix Reasoning for older adults \parencite{wais2008}], participants completed a retrieval task for the words they had previously studied (see Figure 2). The interference task was followed by a retrieval task that included 360 words: 120 TBR targets, 120 TBF targets, and 120 novel lures. Each word appeared individually on the screen for 2500 ms during which time participants were asked to make a remember/know/new (R/K/N) memory decision \parencite[see][for a review]{yonelinas.jacoby1995remknow}. It was stressed to the participants that their memory response should not depend on whether the word had been associated with a TBR or TBF cue during encoding but should instead depend only on whether the word was old or new. The retrieval task was divided into 5 runs of 72 words each.
 
 \section*{Results}
+
+
+
+
+
+
+
+
 
 \subsection*{DF Effect Calculations}
 
@@ -166,40 +230,55 @@ Finally, the current investigation has broader implications for the field of cog
 
 % Tables
 
-\begin{table}[ht]
-\begin{center}
-\begin{tabular}{lrr}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{table}
+
+\caption{\label{tab:print_table}Table 1 Participant Demographics}
+\centering
+\begin{tabular}[t]{l|r|r}
 \hline
-Measure & Mean_OA & Mean_YA \\
+Measure & Older Adults & Younger Adults\\
 \hline
-MMSE & 29.43 & NA \\
-SYMBOLSEARCH & 12.57 & 12.89 \\
-DIGITSYMBOL & 12.77 & 12.11 \\
-DIGITSPAN & 12.00 & 10.79 \\
-ARITHMETIC & 10.90 &  8.75 \\
-LNSEQUENCING & 11.93 & 10.39 \\
-VOCAB & 12.80 & 11.82 \\
-AGE & 69.47 & 19.13 \\
-EDUCATION_yrs & 16.50 & 12.93 \\
-BASELINE_COGITIVE_ABILITY & 12.16 & 11.12 \\
+MMSE & 29.43 & NaN\\
+\hline
+SYMBOLSEARCH & 12.57 & 12.89\\
+\hline
+DIGITSYMBOL & 12.77 & 12.11\\
+\hline
+DIGITSPAN & 12.00 & 10.79\\
+\hline
+ARITHMETIC & 10.90 & 8.75\\
+\hline
+LNSEQUENCING & 11.93 & 10.39\\
+\hline
+VOCAB & 12.80 & 11.82\\
+\hline
+AGE & 69.47 & 19.13\\
+\hline
+EDUCATION & 16.50 & 12.93\\
+\hline
+COMPOSITE & 12.16 & 11.12\\
 \hline
 \end{tabular}
-\end{center}
 \end{table}
+
+
+\end{knitrout}
 
 % Figures
 \begin{figure}
     \centering
     \includegraphics[width=\textwidth]{Slide1.jpg}
     \caption{A visual summary of the item-method directed forgetting encoding task for each memory cue duration. Participants completed a shallow encoding task for each word (Does the word contain the letter 'A' or not?). Subsequently, each word was followed by a memory cue instructing participants to either remember (green) or forget (red) the previous word.}
-    \label{fig:1}
+    \label{fig:Figure 1}
 \end{figure}
 
 \begin{figure}
     \centering
     \includegraphics{Fig2.jpg}
     \caption{A visual summary of the item-method directed forgetting retrieval task (Remember/Know/New) for all words from encoding (120 TBR, 120 TBF) and 120 new items. Participants had 2.5 seconds to indicate their memory response to the word.}
-    \label{fig:2}
+    \label{fig:Figure 2}
 \end{figure}
 
 \appendix
