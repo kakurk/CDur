@@ -179,4 +179,15 @@ OA.fivesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Second
 
 ```
 
+```{r cue_dur by AgeGroup ANOVA}
+
+# ANOVA
+m <- aov(DF.effect ~ AgeGroup + AgeGroup*enctype + Error(subject/(enctype)), data = df.DFeffects)
+
+# Summarize, break into between and repeated factors
+object   <- summary(m)
+between  <- object$`Error: subject`
+repeated <- object$`Error: subject:enctype`
+
+```
 
