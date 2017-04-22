@@ -76,5 +76,19 @@ YA.fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Secon
 
 OA.oneseconds  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
 OA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
-OA.fivesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
+OA.fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
 
+## ---- AgebyCueDurANOVA_DF.effect
+
+# ANOVA
+m <- aov(DF.effect ~ AgeGroup + AgeGroup*enctype + Error(subject/(enctype)), data = df.DFeffects)
+
+mean_tbl <- model.tables(m, "means")
+
+# Summarize, break into between and repeated factors
+object   <- summary(m)
+between  <- object$`Error: subject`
+repeated <- object$`Error: subject:enctype`
+
+# bonferroni follow-up t-tests
+follow.up.pairwise <- pairwise.t.test(df.DFeffects$DF.effect, df.DFeffects$enctype, p.adj = "bonferroni")
