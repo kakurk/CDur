@@ -65,7 +65,7 @@ Also relevant to the current study was a study performed by \textcite{gardiner.g
 <<echo=FALSE, warning=FALSE, message=FALSE>>=
 library('knitr')
 library('tidyverse')
-read_chunk("Rcode/demographics_table1.R")
+read_chunk("code/demographics_table1.R")
 @
 <<load_data,echo=FALSE>>=
 @
@@ -99,7 +99,7 @@ Following a 10 min interference task [Arithmetic Test for young adults and Matri
 \section*{Results}
 
 <<echo=FALSE, warning=FALSE, message=FALSE>>=
-read_chunk("Rcode/EffectReplications.R")
+read_chunk("code/EffectReplications.R")
 @
 <<load_data, echo=FALSE>>=
 @
@@ -117,13 +117,16 @@ As mentioned in the Introduction, the current study had an a-priori hypotheses a
 <<t_tests,echo=FALSE>>=
 @
 
-Prior to performing analyses on our variables of interest (i.e., Cue Duration, Age Group, and Cognitive Ability), we wanted to determine if we had successfully replicated the previously reported Traditional DF and Recollection Effects in our sample of younger and older adults collapsed across our Cue Duration conditions. One sample t-tests of the Traditional DF and Recollection Effects revealed that both our younger and older adult samples displayed, collapsed across Cue Durations, mean Traditional DF and Recollection Effects that were significantly greater than zero (both \textit{p}s < .001). Additional one-sample t-tests were also run to determine if our memory effects of interest were significantly greater than zero within each Cue Duration within each Age Group. Our sample of young and older adults both displayed Traditional DF Effects that were significantly greater than zero in the 3 and 5 second Cue Duration conditions (all \textit{p}s < .001), but did not show significant Traditional DF effects in the 1 second cue duration condition (both \textit{p}s = ns, after Bonferroni correction).The Recollection Effects in our two Age Group samples were significantly greater than zero in all three Cue Durations conditions (all \textit{p}s < .01, Bonferroni corrected).
+Prior to performing analyses on our variables of interest (i.e., Cue Duration, Age Group, and Cognitive Ability), we wanted to determine if we had successfully replicated the previously reported Traditional DF and Recollection Effects in our sample of younger and older adults collapsed across our Cue Duration conditions. One sample t-tests of the Traditional DF and Recollection Effects revealed that both our younger and older adult samples displayed, collapsed across Cue Durations, mean Traditional DF and Recollection Effects that were significantly greater than zero (both \textit{p}s < .001). Additional one-sample t-tests were also run to determine if our memory effects of interest were significantly greater than zero within each Cue Duration within each Age Group. Our sample of young and older adults both displayed Traditional DF Effects that were significantly greater than zero in the 3 and 5 second Cue Duration conditions (all \textit{p}s < .001), but did not show significant Traditional DF effects in the 1 second cue duration condition (both \textit{p}s = ns, after Bonferroni correction). The Recollection Effects in our two Age Group samples were significantly greater than zero in all three Cue Durations conditions (all \textit{p}s < .01, Bonferroni corrected).
 
 \subsection*{Effects of Cue Duration and Age Group}
 
 \subsubsection*{Traditional Directed Forgetting Effect}
 
-To examine the influence of Cue Duration on the Traditional DF Effects displayed by our young and older adult samples, a 3 (Cue Duration) by 2 (Age Group) repeated measures ANOVA was performed. The ANOVA revealed a significant main effect of Cue Duration (\textit{F}(2,116) = 22.35, \textit{p} < .001). The main effect of Age Group (\textit{F}(1,58) = .340, \textit{p} = ns) and Age Group x Cue Duration (\textit{F}(2,116) = .953, \textit{p} = ns) interaction failed to reach significance. The main effect of Cue Duration manifested itself as an increase in the size of the Directed Forgetting Effect (collapsed across YAs and OAs) from the 1 second cue duration (\textit{M} = .061, \textit{SEM} = .020) to the 3 second cue duration (\textit{M} = .149, \textit{SEM} =.020) to the 5 second cue duration (\textit{M} = .180, \textit{SEM} =.022). Follow up Bonferroni corrected pairwise comparisons revealed that, collapsed across YAs and OAs, the mean Traditional DF Effect in 1 second cue duration condition was significantly smaller than the means in both the 3 second cue duration (\textit{p} < .001) and the 5 second cue duration (\textit{p} < .001) conditions. The means and standard errors of the Traditional DF Effect for YAs and OAs at each Cue Duration are displayed in Figure 3.
+<<AgebyCueDurANOVA, echo=FALSE>>=
+@
+
+To examine the influence of Cue Duration on the Traditional DF Effects displayed by our young and older adult samples, a 3 (Cue Duration) by 2 (Age Group) repeated measures ANOVA was performed. The ANOVA revealed a significant main effect of Cue Duration (\textit{F}(2,116) = \Sexpr{round(unlist(repeated)[["F value1"]], 2)}, \textit{p} < .001). The main effect of Age Group (\textit{F}(1,58) = \Sexpr{round(unlist(between)[["F value1"]], 2)}, \textit{p} = ns) and Age Group x Cue Duration (\textit{F}(2,116) = \Sexpr{round(unlist(repeated)[["F value2"]], 2)}, \textit{p} = ns) interaction failed to reach significance. The main effect of Cue Duration manifested itself as an increase in the size of the Directed Forgetting Effect (collapsed across YAs and OAs) from the 1 second cue duration (\textit{M} = \Sexpr{round(mean_tbl$tables$enctype[["1 Second"]], 2)}) to the 3 second cue duration (\textit{M} = \Sexpr{round(mean_tbl$tables$enctype[["3 Seconds"]], 2)}) to the 5 second cue duration (\textit{M} = \Sexpr{round(mean_tbl$tables$enctype[["5 Seconds"]], 2)}). Follow up Bonferroni corrected pairwise comparisons revealed that, collapsed across YAs and OAs, the mean Traditional DF Effect in 1 second cue duration condition was significantly smaller than the means in both the 3 second cue duration (\textit{p} < .001) and the 5 second cue duration (\textit{p} < .001) conditions. The means and standard errors of the Traditional DF Effect for YAs and OAs at each Cue Duration are displayed in Figure 3.
 
 \subsubsection*{Recollection Effect}
 
@@ -199,16 +202,9 @@ Finally, the current investigation has broader implications for the field of cog
 % Figures
 \begin{figure}
     \centering
-    \includegraphics[width=\textwidth]{Slide1.jpg}
-    \caption{A visual summary of the item-method directed forgetting encoding task for each memory cue duration. Participants completed a shallow encoding task for each word (Does the word contain the letter 'A' or not?). Subsequently, each word was followed by a memory cue instructing participants to either remember (green) or forget (red) the previous word.}
+    \includegraphics[width=\textwidth]{fig1.jpg}
+    \caption{A visual summary of the item-method directed forgetting task. A.) Participants completed a shallow encoding task for each word (Does the word contain the letter 'A' or not?). Subsequently, each word was followed by a memory cue instructing participants to either remember (green) or forget (red) the previous word. B.) In a subsequent retrieval phase, participants completed made a Remember/Know/New judgement for all words from encoding (120 TBR, 120 TBF) and 120 new items. Participants had 2.5 seconds to indicate their memory response to the word.}
     \label{fig:Figure 1}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includegraphics{Fig2.jpg}
-    \caption{A visual summary of the item-method directed forgetting retrieval task (Remember/Know/New) for all words from encoding (120 TBR, 120 TBF) and 120 new items. Participants had 2.5 seconds to indicate their memory response to the word.}
-    \label{fig:Figure 2}
 \end{figure}
 
 \appendix
