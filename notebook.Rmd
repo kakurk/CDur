@@ -7,20 +7,23 @@ output:
     code_folding: hide  
     toc: true
     toc_float: true
+    number_sections: true
 params:
-  datapath: ./data/
+  datapath: ~/Documents/githubrepos/CDur/data/
 ---
 
-# Initalize
+# Loading Libraries
 
-## Loading Libraries
+For the purposes of this notebook, I will be using the `tidyverse` and `knitr` packages.
 
 ```{r libraries, message=FALSE, warning=FALSE}
 library('tidyverse')
 library('knitr')
 ```
 
-## Load Data
+# Load Data
+
+Load the raw data into R from the datapath directory input at the top of the notebook.
 
 ```{r load}
 # Initalize variables
@@ -33,15 +36,27 @@ demo_raw_data_file <- paste0(datapath, "demographics.csv")
 df.young        <- read.csv(ya_raw_data_file, quote = "\'")
 df.old          <- read.csv(oa_raw_data_file, quote = "\'")
 df.demographics <- read.csv(demo_raw_data_file, quote = "\'")
+
+# Remove problem subjects o322, o122, and o307
+df.old          <- filter(df.old, subject != 'o322')
+df.old          <- filter(df.old, subject != 'o122')
+df.old          <- filter(df.old, subject != 'o307')
+
+df.demographics <- filter(df.demographics, SUBJECT != 'o322')
+df.demographics <- filter(df.demographics, SUBJECT != 'o122')
+df.demographics <- filter(df.demographics, SUBJECT != 'o307')
 ```
 
-## Data Cleaning
+# Data Cleaning
 
-### Demographics
+## Demographics
 
-1. Drop Empty Variables  
-2. Create EDUCATION_yrs variable, which calculates the EDUCATION variable in terms of years of schooling  
-3. Compute a composite Cognitive Assessment variable by calculating the mean (rounded to 2 decimal points) of the each subject's Symbol Search, Digit-Symbol, Arithmetic, Letter-Number Sequencing, and Vocabulary scores 
+In this section of the notebook, we will be cleaning up the demographics data by:  
+
+1. Droping empty variables.  
+2. Creating the `EDUCATION_yrs` variable, which calculates the `EDUCATION` variable in terms of years of schooling.  
+3. Forcing the `AGE` and `SEX` variables to follow the all capitialization variable naming convention of this notebook.  
+4. Compute the composite `BASELINE_COGITIVE_ABILITY` variable by calculating the mean (rounded to 2 decimal points) of the each subject's Symbol Search, Digit-Symbol, Arithmetic, Letter-Number Sequencing, and Vocabulary scores. 
 
 ```{r clean_demographics_data}
 # dropping blank variables; creating EDUCTION_yrs
@@ -52,10 +67,18 @@ df.demographics %>%
                          ifelse(EDUCATION == '10th grade', 10,
                          ifelse(EDUCATION == '11th grade', 11,
                          ifelse(EDUCATION == '12th grade', 12,
-                         ifelse(EDUCATION == '1 yr college' | EDUCATION == '1 Year college' | EDUCATION == '1 year college', 13,
-                         ifelse(EDUCATION == '2 yrs college' | EDUCATION == '2 Years college' | EDUCATION == '2 years college', 14,
-                         ifelse(EDUCATION == '3 yrs college' | EDUCATION == '3 Years college' | EDUCATION == '3 years college', 15,
-                         ifelse(EDUCATION == '4 yrs college' | EDUCATION == '4 Years college' | EDUCATION == '4 years college', 16,
+                         ifelse(EDUCATION == '1 yr college' | 
+                                EDUCATION == '1 Year college' | 
+                                EDUCATION == '1 year college', 13,
+                         ifelse(EDUCATION == '2 yrs college' | 
+                                EDUCATION == '2 Years college' | 
+                                EDUCATION == '2 years college', 14,
+                         ifelse(EDUCATION == '3 yrs college' | 
+                                EDUCATION == '3 Years college' | 
+                                EDUCATION == '3 years college', 15,
+                         ifelse(EDUCATION == '4 yrs college' | 
+                                EDUCATION == '4 Years college' | 
+                                EDUCATION == '4 years college', 16,
                          ifelse(EDUCATION == 'Post-grad work', 17,
                          ifelse(EDUCATION == 'Masters', 18,
                          ifelse(EDUCATION == 'Doctoral', 20, NA)))))))))))),
@@ -68,16 +91,22 @@ colnames(df.demographics)[10:11] <- c("AGE", "SEX")
 # Calculating Cognitive Assessment Composite Score
 df.demographics %>%
   rowwise() %>%
-  mutate(BASELINE_COGITIVE_ABILITY = mean(c(SYMBOLSEARCH, DIGITSYMBOL, DIGITSPAN, 
-                                            ARITHMETIC, LNSEQUENCING, VOCAB), na.rm = TRUE),
+  mutate(BASELINE_COGITIVE_ABILITY = mean(c(SYMBOLSEARCH, 
+                                            DIGITSYMBOL, 
+                                            DIGITSPAN, 
+                                            ARITHMETIC, 
+                                            LNSEQUENCING, 
+                                            VOCAB), na.rm = TRUE),
          BASELINE_COGITIVE_ABILITY = round(BASELINE_COGITIVE_ABILITY, digits = 2)) -> df.demographics
 ```
 
-### Raw Experimental Data
+## Raw Experimental Data
 
-1. Concatenate the young and old data, creating a new factor AgeGroup  
-2. Drop the extra jitter varaiable  
-3. Make the numeric coding schemes factors with informative levels  
+In this section of the notebook we will be cleaning the raw experimental data by:  
+
+1. Concatenating the young and old data and creating a new variable `AgeGroup`.    
+2. Dropping the extra jitter varaiable.  
+3. Making the numeric coding of variables `enctype`, `score`, `Response`, `type`, and `AgeGroup` into factors with informative level names.  
 
 ```{r concatenate_and_clean, warning=FALSE}
 # concatenate
@@ -85,7 +114,7 @@ df.all <- bind_rows(list(df.young, df.old), .id = "AgeGroup")
 
 # clean
 df.all %>%
-  select(-jit.1) %>%
+  select(-jit.1) %>% # dropping extra jitter
   mutate(
     enctype  = ifelse(enctype == 1, '1 Second',
                ifelse(enctype == 3, '3 Seconds', 
@@ -108,86 +137,450 @@ df.all %>%
   ) -> df.all
 ```
 
-# Figure 1: Demographics Summary Table
+# Demographics Summary
+
+Next, lets re-create the Demographics Summary Table: 
 
 ```{r demographics_summary, warning=FALSE}
 
+# take the demographics data frame and..
 df.demographics %>%
-  mutate(
-    AgeGroup = factor(ifelse(AGE > 30, 'Old Adults', 'Younger Adults'))
-  ) %>%
-  select(-SUBJECT) %>%
-  group_by(AgeGroup) %>%
-  summarize_if(is.numeric, mean, na.rm = TRUE) %>%
-  mutate_if(is.numeric, round, digits = 2) %>%
+  mutate(AgeGroup = factor(ifelse(AGE > 30, 'Old Adults', 'Younger Adults'))) %>% # create an AgeGroup variable
+  select(-SUBJECT) %>% # drop the SUBJECT variable
+  group_by(AgeGroup) %>% # group by AgeGroup
+  summarize_if(is.numeric, mean, na.rm = TRUE) %>% # Calculate a mean of every numeric variables
+  mutate_if(is.numeric, round, digits = 2) %>% # round all of the numeric variables to 2 decimal places
   gather(key=Measure, value=Mean, -AgeGroup) ->  temp
 
-  temp %>%
-   filter(AgeGroup == "Old Adults") -> OAs
-  temp %>%
-    filter(AgeGroup == "Younger Adults") -> YAs
-  
+# Break this newly cleaned demographic dataframe into OAs and YAs
+temp %>%
+ filter(AgeGroup == "Old Adults") -> OAs
+temp %>%
+  filter(AgeGroup == "Younger Adults") -> YAs
+
+# Join the OAs and YAs dataframes into a single table
 table1.demographics  <- left_join(select(OAs, -AgeGroup), select(YAs, -AgeGroup), by = c("Measure"), suffix = c("_OA", "_YA"), "-AgeGroup")
 
+# Rename the Top of the Table
 names(table1.demographics) <- c("Measure", "Older Adults", "Younger Adults")
 
-table1.demographics[9,1] <- "EDUCATION"
+# Rename the 9th and 10th variables EDUCATION and COMPOSTIE
+table1.demographics[9,1]  <- "EDUCATION"
 table1.demographics[10,1] <- "COMPOSITE"
 
+# Display the Table
 table1.demographics
 
 ```
 
-```{r replication_ttests}
+Kyle's Notes:  
 
+- All of the above summary statistics are the mean of each measure for each age group  
+- The Younger Adults did NOT complete the MMSE, so their score appears here as `NaN`  
+
+# DF-Effect
+
+The first question we want to answer statistically: Do we see the `Directed-Forgetting Effect` in ANY of our experimental conditions?
+
+First, lets calculate the `Directed-Forgetting Effect`:  
+
+```{r DF_calculations}
+# Calculate the miss rates
 df.all %>%
   filter(enctype != "Lure") %>%
   mutate(enctype = factor(enctype)) %>%
   group_by(AgeGroup, enctype, type, subject) %>%
   summarize(MissRate = mean(score == "New")) %>% ungroup() -> df.missrates
 
+# Break the dataframe into TBF and TBR
 df.missrates %>% filter(type == "To Be Forgotten") %>% select(-type) -> TBF.Forgotten
 df.missrates %>% filter(type == "To Be Remembered") %>% select(-type) -> TBR.Forgotten
 
-df.DFeffects <- left_join(TBF.Forgotten, TBR.Forgotten, by = c('AgeGroup','enctype', 'subject'), suffix = c("TBF", "TBR"))
+# Merge join the TBF and TBR data frames together, making a "wide" dataframe
+df.DFeffects <- left_join(TBF.Forgotten, TBR.Forgotten, 
+                          by = c('AgeGroup','enctype', 'subject'), 
+                          suffix = c("TBF", "TBR"))
 
+# Calculate the DF-Effect
 df.DFeffects %>%
   transmute(
     AgeGroup = AgeGroup,
     enctype = enctype,
     subject = subject,
     DF.effect = MissRateTBF - MissRateTBR) -> df.DFeffects
+```
 
-# T-Tests by Condition
-onesecond   <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second'], mu = 0)
-threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds'], mu = 0)
-fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds'], mu = 0)
+Now, to answer the question above we want to perform a series of Bonferroni corrected, one-sided, one-sample t-tests comparing the means of each cell of our experimental design to see if they are signifcantly greater than 0.  
 
-# T-Tests by Age Group
-young.test <- t.test(df.DFeffects$DF.effect[df.DFeffects$AgeGroup == 'Young'], mu = 0)
-old.test   <- t.test(df.DFeffects$DF.effect[df.DFeffects$AgeGroup == 'Old'], mu = 0)
+## By Condition
 
-
-# T-Tests by Age Group by Condition
-YA.onesecond   <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second' & df.DFeffects$AgeGroup == 'Young'], mu = 0)
-YA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' & df.DFeffects$AgeGroup == 'Young'], mu = 0)
-YA.fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' & df.DFeffects$AgeGroup == 'Young'], mu = 0)
-
-OA.oneseconds  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
-OA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
-OA.fivesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' & df.DFeffects$AgeGroup == 'Old'], mu = 0)
+```{r}
+# A Visual
+df.DFeffects %>%
+  group_by(enctype) %>%
+  summarize(meanDF.effect = mean(DF.effect), semDF.effect = sd(DF.effect)/sqrt(n())) %>%
+  ggplot(aes(x = enctype, y = meanDF.effect, fill = enctype)) + 
+  geom_bar(stat="identity") + 
+  geom_errorbar(aes(ymin = meanDF.effect - semDF.effect, ymax = meanDF.effect + semDF.effect), width = 0.2) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("Directed Forgetting Effect Across Cue Durations") +
+  ylab("Effect Size") + xlab("Cue Duration") + guides(fill=FALSE) +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ```
 
-```{r cue_dur by AgeGroup ANOVA}
 
+```{r}
+# T-Tests by Condition
+DF.onesecond   <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second'], 
+                         mu = 0, alternative = "greater")
+DF.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds'], 
+                         mu = 0, alternative = "greater")
+DF.fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds'], 
+                         mu = 0, alternative = "greater")
+```
+
+**Conclusions:**  
+
+1.) Collapsed across `AgeGroup`, the `1 Second` Cue Duration Condition showed a Directed Forgetting Effect that was signifcantly greater than 0 (t(`r DF.onesecond$parameter`) = `r round(DF.onesecond$statistic, digits = 2)`, p = `r round(DF.onesecond$p.value, digits = 3)`).  
+
+2.) Collapsed across `AgeGroup`, the `3 Second` Cue Duration Condition showed a Directed Forgetting Effect that was significantly greater than 0 (t(`r DF.threesecond$parameter`) = `r round(DF.threesecond$statistic, digits = 2)`, p < `r if(DF.threesecond$p.value < .001) (.001)`).  
+
+3.) Collapsed across `AgeGroup`, the `5 Second` Cue Duration Condition showed a Directed Forgetting Effect that was significantly greater than 0 (t(`r DF.fivesecond$parameter`) = `r round(DF.fivesecond$statistic, digits = 2)`, p < `r if(DF.fivesecond$p.value < .001) (.001)`).  
+
+## By Age Group
+
+```{r}
+# A Visual
+df.DFeffects %>%
+  group_by(AgeGroup) %>%
+  summarize(meanDF.effect = mean(DF.effect), semDF.effect = sd(DF.effect)/sqrt(n())) %>%
+  ggplot(aes(x = AgeGroup, y = meanDF.effect, fill = AgeGroup)) + 
+  geom_bar(stat="identity") + 
+  geom_errorbar(aes(ymin = meanDF.effect - semDF.effect, ymax = meanDF.effect + semDF.effect), width = 0.2) +
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_continuous(limits = c(0, .2)) +
+  ggtitle("Directed Forgetting Effect Across Age Group") +
+  ylab("Effect Size") + xlab("Age Group") + #guides(fill=FALSE) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+# T-Tests by Age Group
+DF.YA.test   <- t.test(df.DFeffects$DF.effect[df.DFeffects$AgeGroup == 'Young'], 
+                       mu = 0, alternative = "greater")
+DF.OA.test   <- t.test(df.DFeffects$DF.effect[df.DFeffects$AgeGroup == 'Old'], 
+                       mu = 0, alternative = "greater")
+```
+
+**Conclusions:**  
+
+1.) Collapsed across `enctype`, `Young Adults` showed a Directed Forgetting Effect that was signifcantly greater than 0 (t(`r DF.YA.test$parameter`) = `r round(DF.YA.test$statistic, digits = 2)`, p < `r if(DF.OA.test$p.value < .001) (.001)`).  
+
+2.) Collapsed across `enctype`, the `Older Adults` showed a Directed Forgetting Effect that was signficantly greater than 0 (t(`r DF.OA.test$parameter`) = `r round(DF.OA.test$statistic, digits = 2)`, p < `r if(DF.OA.test$p.value < .001) (.001)`).  
+
+## By Condition By Age Group
+
+```{r}
+# A Visual
+df.DFeffects %>%
+  group_by(enctype, AgeGroup) %>%
+  summarize(meanDF.effect = mean(DF.effect), semDF.effect = sd(DF.effect)/sqrt(n())) %>%
+  ggplot(aes(x = enctype, y = meanDF.effect, fill = AgeGroup)) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  geom_errorbar(aes(ymin = meanDF.effect - semDF.effect, ymax = meanDF.effect + semDF.effect), width = 0.2, position = position_dodge(.9)) + 
+  scale_fill_brewer(palette = "Set2") + 
+  scale_y_continuous(limits = c(0, NA)) + 
+  ggtitle("Directed Forgetting Effect Across Experiment") + 
+  ylab("Effect Size") + xlab("Cue Duration") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r t-tests}
+# T-Tests by Age Group by Condition
+DF.YA.onesecond   <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second'
+                                                & df.DFeffects$AgeGroup == 'Young'], 
+                            mu = 0, alternative = "greater")
+DF.YA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' 
+                                                & df.DFeffects$AgeGroup == 'Young'], 
+                            mu = 0, alternative = "greater")
+DF.YA.fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' 
+                                                & df.DFeffects$AgeGroup == 'Young'], 
+                            mu = 0, alternative = "greater")
+
+DF.OA.onesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second' 
+                                                & df.DFeffects$AgeGroup == 'Old'], 
+                           mu = 0, alternative = "greater")
+DF.OA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' 
+                                                & df.DFeffects$AgeGroup == 'Old'], 
+                            mu = 0, alternative = "greater")
+DF.OA.fivesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' 
+                                               & df.DFeffects$AgeGroup == 'Old'], 
+                           mu = 0, alternative = "greater")
+```
+
+Each Experimental Cell displayed a DF-Effect that was signnifcantly GREATER than 0 **EXCEPT** for OA and YA 1 Second:
+
+1.) `OA 1 Second` (t(`r DF.OA.onesecond$parameter`) = `r round(DF.OA.onesecond$statistic, digits = 2)`, p = `r round(DF.OA.onesecond$p.value, digits = 2)`) **NOT SIGNIFCANT AFTER BONFERRONI**  
+2.) `YA 1 Second` (t(`r DF.YA.onesecond$parameter`) = `r round(DF.YA.onesecond$statistic, digits = 2)`, p = `r round(DF.YA.onesecond$p.value, digits = 2)`) **NOT SIGNIFCANT AFTER BONFERRONI**   
+3.) `OA 3 Seconds` (t(`r DF.OA.threesecond$parameter`) = `r round(DF.OA.threesecond$statistic, digits = 2)`, p < `r if(DF.OA.threesecond$p.value < .001) (.001)`)  
+4.) `YA 3 Seconds` (t(`r DF.YA.threesecond$parameter`) = `r round(DF.YA.threesecond$statistic, digits = 2)`, p < `r if(DF.YA.threesecond$p.value < .001) (.001)`)  
+5.) `OA 5 Seconds` (t(`r DF.OA.fivesecond$parameter`) = `r round(DF.OA.fivesecond$statistic, digits = 2)`, p < `r if(DF.OA.fivesecond$p.value < .001) (.001)`)  
+6.) `YA 5 Seconds` (t(`r DF.YA.fivesecond$parameter`) = `r round(DF.YA.fivesecond$statistic, digits = 2)`, p < `r if(DF.YA.fivesecond$p.value < .001) (.001)`)  
+
+The results of the **Age Group x Cue Duration ANOVA** breakdown as follows:  
+
+```{r ANOVA}
 # ANOVA
 m <- aov(DF.effect ~ AgeGroup + AgeGroup*enctype + Error(subject/(enctype)), data = df.DFeffects)
 
 # Summarize, break into between and repeated factors
 object   <- summary(m)
-between  <- object$`Error: subject`
-repeated <- object$`Error: subject:enctype`
+DF.between  <- object$`Error: subject`[[1]]
+DF.repeated <- object$`Error: subject:enctype`[[1]]
+object
+```
+
+1.) The main effect of `AgeGroup` is **NOT** signifcant (F(`r DF.between$Df[[1]]`) = `r round(DF.between$'F value'[[1]], digits = 2)`, p = `r round(DF.between$'Pr(>F)'[[1]], digits = 2)`).  
+2.) The main effect of `CueDuration` **IS** significant (F(`r DF.repeated$Df[[1]]`) = `r round(DF.repeated$'F value'[[1]], digits = 2)`, p < `r if(DF.repeated$'Pr(>F)'[[1]] < .001) (.001)`).  
+3.) The interaction between `AgeGroup` and `CueDuration` was **NOT** signifcant (F(`r DF.repeated$Df[[2]]`) = `r round(DF.repeated$'F value'[[2]], digits = 2)`, p = `r round(DF.repeated$'Pr(>F)'[[2]], digits = 2)`).  
+
+## With Cog Assess Score
+
+What do our results look like when we consider baseline cognitive assessment score?
+
+```{r Visual, warning=FALSE}
+cog.assess.composites <- select(df.demographics, SUBJECT, BASELINE_COGITIVE_ABILITY)
+cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
+                                   composite = BASELINE_COGITIVE_ABILITY)
+
+df.DFeffects <- left_join(df.DFeffects, cog.assess.composites, by = "subject")
+
+ggplot(df.DFeffects, aes(y = DF.effect, x = composite, colour = AgeGroup)) + 
+  scale_colour_brewer(palette = "Set2") + 
+  geom_point() + 
+  facet_grid(AgeGroup ~ enctype) + 
+  geom_smooth(method = "lm", se = TRUE, colour = "navyblue", linetype = "longdash")
+```
+
+When considering baseline cognitive assessment score (i.e., `composite`), we need to run a **Generalized Linear Model (GLM)**, entering in our between subjects factor `AgeGroup`, within subjects factor `enctype`, and linear co-variate `composite`: 
+
+```{r glm}
+
+GLM <- glm(data = df.DFeffects, DF.effect ~ composite*AgeGroup*enctype, na.action = na.omit)
+anova(GLM, test = "F")
 
 ```
 
+**CONCLUSIONS:**
+
+- It looks like the baseline cognitive assessment `composite`, `AgeGroup`, and `enctype` all signifcantly predict the DF-Effect.  
+- Unfortunetly, it looks like that **NONE** of the interaction effects reach signifcance. Thus there is NO evidence for our `AgeGroup` x `EncType` x `composite` story. :/  
+
+# Rec Effect
+
+A second question we would like to answer is this: is there a signifcant `Recollection Effect`? The Recollection Effects operationalized as:  
+
+`TBR-Rec - TBF-Rec`
+
+This measure is similar too, but different than, the DF-Effect.
+
+First, lets calculate the recollection effects:  
+
+```{r rec-effect_calculations}
+# calculate the Rec rates
+df.all %>%
+  filter(enctype != "Lure") %>%
+  mutate(enctype = factor(enctype)) %>%
+  group_by(AgeGroup, enctype, type, subject) %>%
+  summarize(RecRate = mean(score == "Remember")) %>% ungroup() -> df.recrates
+
+# Break the dataframe into TBF and TBR
+df.recrates %>% filter(type == "To Be Forgotten") %>% select(-type)  -> TBF.Remembered
+df.recrates %>% filter(type == "To Be Remembered") %>% select(-type) -> TBR.Remembered
+
+# Merge join the TBF and TBR data frames together, making a "wide" dataframe
+df.RecEffects <- left_join(TBF.Remembered, TBR.Remembered, 
+                           by = c('AgeGroup','enctype', 'subject'), 
+                           suffix = c("TBF", "TBR"))
+
+# Calculate the Rec-Effect
+df.RecEffects %>%
+  transmute(
+    AgeGroup = AgeGroup,
+    enctype = enctype,
+    subject = subject,
+    Rec.effect = RecRateTBR - RecRateTBF) -> df.RecEffects
+```
+
+Now, to answer the question above we want to perform a series of Bonferroni corrected, one-sided, one-sample t-tests comparing the means of each cell of our experimental design to see if they are signifcantly greater than 0.  
+
+## By Condition
+
+```{r}
+# A Visual
+df.RecEffects %>%
+  group_by(enctype) %>%
+  summarize(meanRec.effect = mean(Rec.effect), semRec.effect = sd(Rec.effect)/sqrt(n())) %>%
+  ggplot(aes(x = enctype, y = meanRec.effect, fill = enctype)) + 
+  geom_bar(stat="identity") + 
+  geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, ymax = meanRec.effect + semRec.effect), width = 0.2) +
+  scale_fill_brewer(palette = "Set1") + scale_y_continuous(limits = c(0, .2)) +
+  ggtitle("Recollection Effect Across Cue Durations") +
+  ylab("Effect Size") + xlab("Cue Duration") + guides(fill=FALSE) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r rec-effect_t-tests}
+# T-Tests by Condition
+Rec.onesecond   <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '1 Second'], 
+                          mu = 0, alternative = "greater")
+Rec.threesecond <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '3 Seconds'], 
+                          mu = 0, alternative = "greater")
+Rec.fivesecond  <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '5 Seconds'], 
+                          mu = 0, alternative = "greater")
+```
+
+Conclusions: 
+
+1.) Collapsed across `AgeGroup`, the `1 Second` Cue Duration Condition showed a Directed Recollection Effect signficantly greater than 0 (t(`r Rec.onesecond$parameter`) = `r round(Rec.onesecond$statistic, digits = 2)`, p < `r if(Rec.onesecond$p.value < .001) (.001)`).  
+
+2.) Collapsed across `AgeGroup`, the `3 Second` Cue Duration Condition showed a Directed Recollection Effect signficantly greater than 0 (t(`r Rec.threesecond$parameter`) = `r round(Rec.threesecond$statistic, digits = 2)`, p < `r if(Rec.threesecond$p.value < .001) (.001)`).  
+
+3.) Collapsed across `AgeGroup`, the `5 Second` Cue Duration Condition showed a Directed Recollection Effect signficantly greater than 0 (t(`r Rec.fivesecond$parameter`) = `r round(Rec.fivesecond$statistic, digits = 2)`, p < `r if(Rec.fivesecond$p.value < .001) (.001)`).  
+
+## By Age Group
+
+```{r}
+# A Visual
+df.RecEffects %>%
+  group_by(AgeGroup) %>%
+  summarize(meanRec.effect = mean(Rec.effect), semRec.effect = sd(Rec.effect)/sqrt(n())) %>%
+  ggplot(aes(x = AgeGroup, y = meanRec.effect, fill = AgeGroup)) + 
+  geom_bar(stat="identity") + 
+  geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, ymax = meanRec.effect + semRec.effect), width = 0.2) +
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_continuous(limits = c(0, .2)) +
+  ggtitle("Recollection Effect Across Age Group") +
+  ylab("Effect Size") + xlab("Age Group") + #guides(fill=FALSE) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r}
+# T-Tests by Age Group
+Rec.YA.test   <- t.test(df.RecEffects$Rec.effect[df.RecEffects$AgeGroup == 'Young'], mu = 0, alternative = "greater")
+Rec.OA.test   <- t.test(df.RecEffects$Rec.effect[df.RecEffects$AgeGroup == 'Old'], mu = 0, alternative = "greater")
+```
+
+Conclusions: 
+
+1.) Collapsed across `enctype`, `Young Adults` showed a Directed Recollection Effect signifcantly greater than 0 (t(`r Rec.YA.test$parameter`) = `r round(Rec.YA.test$statistic, digits = 2)`, p < `r if(Rec.OA.test$p.value < .001) (.001)`).  
+
+2.) Collapsed across `enctype`, the `Older Adults` showed a Directed Recollection Effect signifcantly greater than 0 (t(`r Rec.OA.test$parameter`) = `r round(Rec.OA.test$statistic, digits = 2)`, p < `r if(Rec.OA.test$p.value < .001) (.001)`).  
+
+## By Condition By Age Group
+
+```{r}
+# A Visual
+df.RecEffects %>%
+  group_by(enctype, AgeGroup) %>%
+  summarize(meanRec.effect = mean(Rec.effect), semRec.effect = sd(Rec.effect)/sqrt(n())) %>%
+  ggplot(aes(x = enctype, y = meanRec.effect, fill = AgeGroup)) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, ymax = meanRec.effect + semRec.effect), width = 0.2, position = position_dodge(.9)) + 
+  scale_fill_brewer(palette = "Set2") + 
+  scale_y_continuous(limits = c(0, .2)) + 
+  ggtitle("Recollection Effect Across Experiment") + 
+  ylab("Effect Size") + xlab("Cue Duration") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r}
+# T-Tests by Age Group by Condition
+Rec.YA.onesecond   <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '1 Second'
+                                                & df.RecEffects$AgeGroup == 'Young'], 
+                             mu = 0, alternative = "greater")
+Rec.YA.threesecond <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '3 Seconds' 
+                                                & df.RecEffects$AgeGroup == 'Young'], 
+                             mu = 0, alternative = "greater")
+Rec.YA.fivesecond  <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '5 Seconds' 
+                                                & df.RecEffects$AgeGroup == 'Young'], 
+                             mu = 0, alternative = "greater")
+
+Rec.OA.onesecond  <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '1 Second' 
+                                                & df.RecEffects$AgeGroup == 'Old'], 
+                            mu = 0, alternative = "greater")
+Rec.OA.threesecond <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '3 Seconds' 
+                                                & df.RecEffects$AgeGroup == 'Old'], 
+                             mu = 0, alternative = "greater")
+Rec.OA.fivesecond <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '5 Seconds' 
+                                               & df.RecEffects$AgeGroup == 'Old'], 
+                            mu = 0, alternative = "greater")
+```
+
+Each Experimental Cell displayed a Rec-Effect that was signnifcantly GREATER than 0
+
+1.) `OA 1 Second` (t(`r Rec.OA.onesecond$parameter`) = `r round(Rec.OA.onesecond$statistic, digits = 2)`, p = `r round(Rec.OA.onesecond$p.value, digits = 3)`)  
+2.) `YA 1 Second` (t(`r Rec.YA.onesecond$parameter`) = `r round(Rec.YA.onesecond$statistic, digits = 2)`, p = `r round(Rec.YA.onesecond$p.value, digits = 3)`)  
+3.) `OA 3 Seconds` (t(`r Rec.OA.threesecond$parameter`) = `r round(Rec.OA.threesecond$statistic, digits = 2)`, p < `r if(Rec.OA.threesecond$p.value < .001) (.001)`)  
+4.) `YA 3 Seconds` (t(`r Rec.YA.threesecond$parameter`) = `r round(Rec.YA.threesecond$statistic, digits = 2)`, p < `r if(Rec.YA.threesecond$p.value < .001) (.001)`)  
+5.) `OA 5 Seconds` (t(`r Rec.OA.fivesecond$parameter`) = `r round(Rec.OA.fivesecond$statistic, digits = 2)`, p < `r if(Rec.OA.fivesecond$p.value < .001) (.001)`)  
+6.) `YA 5 Seconds` (t(`r Rec.YA.fivesecond$parameter`) = `r round(Rec.YA.fivesecond$statistic, digits = 2)`, p < `r if(Rec.YA.fivesecond$p.value < .001) (.001)`) 
+
+The results of the **Age Group x Cue Duration ANOVA** breakdown as follows:
+
+```{r}
+# ANOVA
+m <- aov(Rec.effect ~ AgeGroup + AgeGroup*enctype + Error(subject/(enctype)), data = df.RecEffects)
+
+# Summarize, break into between and repeated factors
+object   <- summary(m)
+Rec.between  <- object$`Error: subject`[[1]]
+Rec.repeated <- object$`Error: subject:enctype`[[1]]
+object
+```
+
+1.) The main effect of `AgeGroup` is **NOT** signifcant (F(`r Rec.between$Df[[1]]`) = `r round(Rec.between$'F value'[[1]], digits = 2)`, p = `r round(Rec.between$'Pr(>F)'[[1]], digits = 2)`).  
+2.) The main effect of `CueDuration` **IS** significant (F(`r Rec.repeated$Df[[1]]`) = `r round(Rec.repeated$'F value'[[1]], digits = 2)`, p = `r round(Rec.repeated$'Pr(>F)'[[1]], digits = 2)`).  
+3.) The interaction between `AgeGroup` and `CueDuration` was **NOT** signifcant (F(`r Rec.repeated$Df[[2]]`) = `r round(Rec.repeated$'F value'[[2]], digits = 2)`, p = `r round(Rec.repeated$'Pr(>F)'[[2]], digits = 2)`).  
+
+## With Cog Asses Score
+
+How do the results change when we add cognitive assessment score as a factor into our ANOVA?
+
+```{r, warning=FALSE}
+# A Visual
+cog.assess.composites <- select(df.demographics, SUBJECT, BASELINE_COGITIVE_ABILITY)
+cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
+                                   composite = BASELINE_COGITIVE_ABILITY)
+
+df.RecEffects <- left_join(df.RecEffects, cog.assess.composites, by = "subject")
+
+ggplot(df.RecEffects, aes(y = Rec.effect, x = composite, colour = AgeGroup)) + 
+  scale_colour_brewer(palette = "Set2") + 
+  geom_point() + 
+  facet_grid(AgeGroup ~ enctype) + 
+  geom_smooth(method = "glm", se = FALSE, colour = "navyblue", linetype = "longdash") +
+  ggtitle("Recollection Effects as functions of Cue Duration, Age Group, and Cog Assess Score") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+When considering baseline cognitive assessment score (i.e., `composite`), we need to run a **Generalized Linear Model (GLM)**, entering in our between subjects factor `AgeGroup`, within subjects factor `enctype`, and linear co-variate `composite`: 
+
+```{r rec.glm}
+
+GLM <- glm(data = df.RecEffects, Rec.effect ~ composite*AgeGroup*enctype, na.action = na.omit)
+anova(GLM, test = "F")
+
+```
+
+**CONCLUSIONS:**  
+
+- The only signifcant predictor of the Recollection Effect was the baseline cognitive assessment `composite` score. :/  
