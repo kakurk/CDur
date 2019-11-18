@@ -234,14 +234,19 @@ Now, to answer the question above we want to perform a series of Bonferroni corr
 df.DFeffects %>%
   group_by(enctype, AgeGroup) %>%
   summarize(meanDF.effect = mean(DF.effect), semDF.effect = sd(DF.effect)/sqrt(n())) %>%
-  ggplot(aes(x = enctype, y = meanDF.effect, fill = AgeGroup)) + 
-  geom_bar(stat="identity", position = "dodge") + 
-  geom_errorbar(aes(ymin = meanDF.effect - semDF.effect, ymax = meanDF.effect + semDF.effect), width = 0.2, position = position_dodge(.9)) + 
+  ggplot(aes(x = AgeGroup, y = meanDF.effect, group = enctype, fill = enctype)) + 
+  geom_bar(stat="identity", position = position_dodge(width = .95)) + 
+  geom_errorbar(aes(ymin = meanDF.effect - semDF.effect, ymax = meanDF.effect + semDF.effect), 
+                width = 0.2, 
+                position = position_dodge(width = .95)) + 
   scale_fill_brewer(palette = "Set2") + 
-  scale_y_continuous(limits = c(0, NA)) + 
+  scale_y_continuous(limits = c(0, NA), expand = c(0, 0, .05, 0)) + 
   ggtitle("Directed Forgetting Effect Across Experiment") + 
-  ylab("Effect Size") + xlab("Cue Duration") + 
-  theme(plot.title = element_text(hjust = 0.5))
+  ylab("Effect Size") + xlab("Age Group") + 
+  labs(fill = 'Cue Duration') +
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.ticks.x = element_blank(), 
+        axis.text.x = element_text(size = 12))
 ```
 
 
