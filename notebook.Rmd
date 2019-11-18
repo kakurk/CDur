@@ -249,39 +249,6 @@ df.DFeffects %>%
         axis.text.x = element_text(size = 12))
 ```
 
-
-```{r t-tests}
-# T-Tests by Age Group by Condition
-DF.YA.onesecond   <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second'
-                                                & df.DFeffects$AgeGroup == 'Young'], 
-                            mu = 0, alternative = "greater")
-DF.YA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' 
-                                                & df.DFeffects$AgeGroup == 'Young'], 
-                            mu = 0, alternative = "greater")
-DF.YA.fivesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' 
-                                                & df.DFeffects$AgeGroup == 'Young'], 
-                            mu = 0, alternative = "greater")
-
-DF.OA.onesecond  <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '1 Second' 
-                                                & df.DFeffects$AgeGroup == 'Old'], 
-                           mu = 0, alternative = "greater")
-DF.OA.threesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '3 Seconds' 
-                                                & df.DFeffects$AgeGroup == 'Old'], 
-                            mu = 0, alternative = "greater")
-DF.OA.fivesecond <- t.test(df.DFeffects$DF.effect[df.DFeffects$enctype == '5 Seconds' 
-                                               & df.DFeffects$AgeGroup == 'Old'], 
-                           mu = 0, alternative = "greater")
-```
-
-Each Experimental Cell displayed a DF-Effect that was signnifcantly GREATER than 0 **EXCEPT** for OA and YA 1 Second:
-
-1.) `OA 1 Second` (t(`r DF.OA.onesecond$parameter`) = `r round(DF.OA.onesecond$statistic, digits = 2)`, p = `r round(DF.OA.onesecond$p.value, digits = 2)`) **NOT SIGNIFCANT AFTER BONFERRONI**  
-2.) `YA 1 Second` (t(`r DF.YA.onesecond$parameter`) = `r round(DF.YA.onesecond$statistic, digits = 2)`, p = `r round(DF.YA.onesecond$p.value, digits = 2)`) **NOT SIGNIFCANT AFTER BONFERRONI**   
-3.) `OA 3 Seconds` (t(`r DF.OA.threesecond$parameter`) = `r round(DF.OA.threesecond$statistic, digits = 2)`, p < `r if(DF.OA.threesecond$p.value < .001) (.001)`)  
-4.) `YA 3 Seconds` (t(`r DF.YA.threesecond$parameter`) = `r round(DF.YA.threesecond$statistic, digits = 2)`, p < `r if(DF.YA.threesecond$p.value < .001) (.001)`)  
-5.) `OA 5 Seconds` (t(`r DF.OA.fivesecond$parameter`) = `r round(DF.OA.fivesecond$statistic, digits = 2)`, p < `r if(DF.OA.fivesecond$p.value < .001) (.001)`)  
-6.) `YA 5 Seconds` (t(`r DF.YA.fivesecond$parameter`) = `r round(DF.YA.fivesecond$statistic, digits = 2)`, p < `r if(DF.YA.fivesecond$p.value < .001) (.001)`)  
-
 The results of the **Age Group x Cue Duration ANOVA** breakdown as follows:  
 
 ```{r ANOVA}
