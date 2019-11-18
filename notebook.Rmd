@@ -97,18 +97,19 @@ df.demographics %>%
                                             ARITHMETIC, 
                                             LNSEQUENCING, 
                                             VOCAB), na.rm = TRUE),
-         BASELINE_COGITIVE_ABILITY = round(BASELINE_COGITIVE_ABILITY, digits = 2)) -> df.demographics
+         BASELINE_COGITIVE_ABILITY = round(BASELINE_COGITIVE_ABILITY, digits = 2)) %>%
+  ungroup() -> df.demographics
 
 # Calculate the Composite Z score
 CompositeVars <- c('SYMBOLSEARCH', 'DIGITSYMBOL', 'DIGITSPAN', 'ARITHMETIC', 'LNSEQUENCING', 'VOCAB')
 
 df.demographics %>%
   mutate(AgeGroup = str_extract(string = SUBJECT, pattern = '^[yo]'),
-         AgeGroup = factor(AgeGroup, levels = c('y', 'o'), labels = c('Young', 'Old'))) %>%
+         AgeGroup = factor(AgeGroup, levels = c('y', 'o'), labels = c('Young Adults', 'Old Adults'))) %>%
   group_by(AgeGroup) %>%
   mutate_at(CompositeVars, scale) %>%
   ungroup() %>%
-  mutate(COMPOSITEZSCORE = pmap_dbl(select(., one_of(CompositeVars)), lift_vd(mean))) -> df.demographics
+  mutate(COMPOSITEZSCORE = pmap_dbl(select(., one_of(CompositeVars)), lift_vd(mean))) -> df.demographics.z
 ```
 
 ## Raw Experimental Data
@@ -156,7 +157,8 @@ Next, lets re-create the Demographics Summary Table:
 
 # take the demographics data frame and..
 df.demographics %>%
-  mutate(AgeGroup = factor(ifelse(AGE > 30, 'Old Adults', 'Younger Adults'))) %>% # create an AgeGroup variable
+  mutate(AgeGroup = str_extract(SUBJECT, '^[oy]'),
+         AgeGroup = factor(AgeGroup, levels = c('y', 'o'), labels = c('Younger Adults', 'Old Adults'))) %>%
   select(-SUBJECT) %>% # drop the SUBJECT variable
   group_by(AgeGroup) %>% # group by AgeGroup
   summarize_if(is.numeric, mean, na.rm = TRUE) %>% # Calculate a mean of every numeric variables
@@ -170,7 +172,9 @@ temp %>%
   filter(AgeGroup == "Younger Adults") -> YAs
 
 # Join the OAs and YAs dataframes into a single table
-table1.demographics  <- left_join(select(OAs, -AgeGroup), select(YAs, -AgeGroup), by = c("Measure"), suffix = c("_OA", "_YA"), "-AgeGroup")
+table1.demographics  <- left_join(select(OAs, -AgeGroup), select(YAs, -AgeGroup), 
+                                  by = c("Measure"), 
+                                  suffix = c("_OA", "_YA"), "-AgeGroup")
 
 # Rename the Top of the Table
 names(table1.demographics) <- c("Measure", "Older Adults", "Younger Adults")
