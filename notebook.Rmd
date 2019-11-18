@@ -9,7 +9,7 @@ output:
     toc_float: true
     number_sections: true
 params:
-  datapath: ~/Documents/githubrepos/CDur/data/
+  datapath: ~/Documents/MATLAB/githubrepos/personal-repos/CDur/data/
 ---
 
 # Loading Libraries
