@@ -98,6 +98,17 @@ df.demographics %>%
                                             LNSEQUENCING, 
                                             VOCAB), na.rm = TRUE),
          BASELINE_COGITIVE_ABILITY = round(BASELINE_COGITIVE_ABILITY, digits = 2)) -> df.demographics
+
+# Calculate the Composite Z score
+CompositeVars <- c('SYMBOLSEARCH', 'DIGITSYMBOL', 'DIGITSPAN', 'ARITHMETIC', 'LNSEQUENCING', 'VOCAB')
+
+df.demographics %>%
+  mutate(AgeGroup = str_extract(string = SUBJECT, pattern = '^[yo]'),
+         AgeGroup = factor(AgeGroup, levels = c('y', 'o'), labels = c('Young', 'Old'))) %>%
+  group_by(AgeGroup) %>%
+  mutate_at(CompositeVars, scale) %>%
+  ungroup() %>%
+  mutate(COMPOSITEZSCORE = pmap_dbl(select(., one_of(CompositeVars)), lift_vd(mean))) -> df.demographics
 ```
 
 ## Raw Experimental Data
