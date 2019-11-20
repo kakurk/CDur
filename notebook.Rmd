@@ -263,10 +263,6 @@ DF.repeated <- object$`Error: subject:enctype`[[1]]
 object
 ```
 
-1.) The main effect of `AgeGroup` is **NOT** signifcant (F(`r DF.between$Df[[1]]`) = `r round(DF.between$'F value'[[1]], digits = 2)`, p = `r round(DF.between$'Pr(>F)'[[1]], digits = 2)`).  
-2.) The main effect of `CueDuration` **IS** significant (F(`r DF.repeated$Df[[1]]`) = `r round(DF.repeated$'F value'[[1]], digits = 2)`, p < `r if(DF.repeated$'Pr(>F)'[[1]] < .001) (.001)`).  
-3.) The interaction between `AgeGroup` and `CueDuration` was **NOT** signifcant (F(`r DF.repeated$Df[[2]]`) = `r round(DF.repeated$'F value'[[2]], digits = 2)`, p = `r round(DF.repeated$'Pr(>F)'[[2]], digits = 2)`).  
-
 ```{r message=FALSE}
 # A prori tests using EMMEANS
 
@@ -278,20 +274,24 @@ emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.DF
 summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
 ```
 
-Observing the table above, it appears that there is a statistically significant DF effect for both AgeGroups in the 3 and 5 second conditions. There is NOT, however, a statistically significant effect for either AgeGroup in the 1 Second Cue duration group.  
-
 ```{r message=FALSE}
 # a posterior contrasts using EMMEANS
 
 # Is there a linear effect in OAs? A Quadratic effect in YAs?
 
 require(emmeans)
-emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.DF
+emmeans(m, ~ enctype + AgeGroup) -> EMMEANS.DF
 
 contrast(EMMEANS.DF, method = 'poly', by = 'AgeGroup')
 ```
 
-There is a significant linear trend for YAs and OAs and a significant quadratic trend for YAs.
+```{r}
+# Is there a difference in the effects for YAs and OAs?
+
+contrast(EMMEANS.DF, interaction = c('poly', 'consec'))
+```
+
+There is a significant linear trend for YAs and OAs and a significant quadratic trend for YAs. This difference is not statistically significant.  
 
 ## With Cog Assess Score
 
@@ -333,7 +333,6 @@ df.DFeffects %>%
   kable_styling() %>%
   collapse_rows(columns = c(1,2), valign = 'top')
 ```
-
 
 # Rec Effect
 
@@ -416,13 +415,19 @@ summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
 ```
 
 ```{r message=FALSE}
-# a posterior contrasts for linear and quadratic effects
+# Is there a linear or quadratic effect for YAs and OAs?
 
 require(emmeans)
 
-emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.RE
+emmeans(m, ~ enctype + AgeGroup) -> EMMEANS.RE
 
 contrast(EMMEANS.RE, method = 'poly', by = 'AgeGroup')
+```
+
+```{r}
+# Is there a difference in the effects between YAs and OAs?
+
+contrast(EMMEANS.RE, interaction = c('poly', 'consec'))
 ```
 
 ## With Cog Asses Score
