@@ -313,17 +313,25 @@ cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT,
 
 df.DFeffects <- left_join(df.DFeffects, cog.assess.composites, by = "subject")
 
-ggplot(df.DFeffects, aes(y = DF.effect, x = composite, colour = AgeGroup)) + 
-  scale_colour_brewer(palette = "Set2") + 
-  geom_point() + 
-  facet_grid(AgeGroup ~ enctype) + 
-  geom_smooth(method = "lm", formula = y ~ x, se = TRUE, colour = "navyblue", linetype = "longdash")
+df.DFeffects %>% 
+  filter(AgeGroup == 'Old') %>%
+  ggplot(aes(y = DF.effect, x = composite, colour = AgeGroup)) + 
+    scale_colour_brewer(palette = "Set2") + 
+    geom_point() + 
+    facet_grid(. ~ enctype) + 
+    geom_smooth(method = "lm", 
+                formula = y ~ x, 
+                se = TRUE, 
+                colour = "navyblue", 
+                linetype = "longdash")
 ```
 
-Run a linear regression model with all three predictors.  
-
 ```{r regression}
-regression.model <- lm(DF.effect ~ AgeGroup*enctype*composite, data = df.DFeffects)
+# Is there an interaction between AgeGroup and composite Cog Assess score
+
+regression.model <- lm(DF.effect ~ enctype*composite, 
+                       data = df.DFeffects,
+                        subset = df.DFeffects$AgeGroup == 'Old')
 
 anova(regression.model)
 ```
@@ -461,18 +469,28 @@ cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT,
 
 df.RecEffects <- left_join(df.RecEffects, cog.assess.composites, by = "subject")
 
-ggplot(df.RecEffects, aes(y = Rec.effect, x = composite, colour = AgeGroup)) + 
+df.RecEffects %>%
+  filter(AgeGroup == 'Old') %>%
+ggplot(aes(y = Rec.effect, x = composite, colour = AgeGroup)) + 
   scale_colour_brewer(palette = "Set2") + 
   geom_point() + 
   facet_grid(AgeGroup ~ enctype) + 
-  geom_smooth(method = "glm", se = TRUE, formula = y ~ x, colour = "navyblue", linetype = "longdash") +
+  geom_smooth(method = "glm", 
+              se = TRUE, 
+              formula = y ~ x, 
+              colour = "navyblue", 
+              linetype = "longdash") +
   labs(title = "Recollection Effects", 
        subtitle = "As a function of Cue Duration, Age Group, and Cog Assess Score") + 
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
 ```{r}
-regression.model <- lm(Rec.effect ~ AgeGroup*enctype*composite, data = df.RecEffects)
+# Just for Older adults, is there a significant interaction between cue duration and composite score?
+
+regression.model <- lm(Rec.effect ~ enctype*composite, 
+                       data = df.RecEffects, 
+                       subset = df.RecEffects$AgeGroup == 'Old')
 
 anova(regression.model)
 ```
