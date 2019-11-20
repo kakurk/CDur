@@ -253,7 +253,7 @@ The results of the **Age Group x Cue Duration ANOVA** breakdown as follows:
 
 ```{r ANOVA}
 # ANOVA
-m <- aov(DF.effect ~ AgeGroup + AgeGroup*enctype + Error(subject/(enctype)), data = df.DFeffects)
+m <- aov(DF.effect ~ AgeGroup*enctype + Error(subject/(enctype)), data = df.DFeffects)
 
 # Summarize, break into between and repeated factors
 object   <- summary(m)
@@ -266,14 +266,40 @@ object
 2.) The main effect of `CueDuration` **IS** significant (F(`r DF.repeated$Df[[1]]`) = `r round(DF.repeated$'F value'[[1]], digits = 2)`, p < `r if(DF.repeated$'Pr(>F)'[[1]] < .001) (.001)`).  
 3.) The interaction between `AgeGroup` and `CueDuration` was **NOT** signifcant (F(`r DF.repeated$Df[[2]]`) = `r round(DF.repeated$'F value'[[2]], digits = 2)`, p = `r round(DF.repeated$'Pr(>F)'[[2]], digits = 2)`).  
 
+```{r}
+# A prori tests using EMMEANS
+
+# Question: is there a Directed Forgetting Effect > 0 for each AgeGroup / Cue Duration?
+
+require(emmeans)
+emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.DF
+
+summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni')
+```
+
+Observing the table above, it appears that there is a statistically significant DF effect for both AgeGroups in the 3 and 5 second conditions. There is NOT, however, a statistically significant effect for either AgeGroup in the 1 Second Cue duration group.  
+
+```{r}
+# a posterior contrasts using EMMEANS
+
+# Is there a linear effect in OAs? A Quadratic effect in YAs?
+
+require(emmeans)
+emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.DF
+
+contrast(EMMEANS.DF, method = 'poly', by = 'AgeGroup')
+```
+
+There is a significant linear trend for YAs and OAs and a significant quadratic trend for YAs.
+
 ## With Cog Assess Score
 
 What do our results look like when we consider baseline cognitive assessment score?
 
 ```{r Visual, warning=FALSE}
-cog.assess.composites <- select(df.demographics, SUBJECT, BASELINE_COGITIVE_ABILITY)
+cog.assess.composites <- select(df.demographics.z, SUBJECT, COMPOSITEZSCORE)
 cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
-                                   composite = BASELINE_COGITIVE_ABILITY)
+                                   composite = COMPOSITEZSCORE)
 
 df.DFeffects <- left_join(df.DFeffects, cog.assess.composites, by = "subject")
 
@@ -281,15 +307,16 @@ ggplot(df.DFeffects, aes(y = DF.effect, x = composite, colour = AgeGroup)) +
   scale_colour_brewer(palette = "Set2") + 
   geom_point() + 
   facet_grid(AgeGroup ~ enctype) + 
-  geom_smooth(method = "lm", se = TRUE, colour = "navyblue", linetype = "longdash")
+  geom_smooth(method = "lm", formula = y ~ x, se = TRUE, colour = "navyblue", linetype = "longdash")
 ```
 
-When considering baseline cognitive assessment score (i.e., `composite`), we need to run a **Generalized Linear Model (GLM)**, entering in our between subjects factor `AgeGroup`, within subjects factor `enctype`, and linear co-variate `composite`: 
+Run a linear regression model with all three predictors.  
 
-```{r glm}
+```{r regression}
 
-GLM <- glm(data = df.DFeffects, DF.effect ~ composite*AgeGroup*enctype, na.action = na.omit)
-anova(GLM, test = "F")
+regression.model <- aov(DF.effect ~ AgeGroup*enctype*composite, data = df.DFeffects)
+
+summary(regression.model)
 
 ```
 
@@ -334,75 +361,6 @@ df.RecEffects %>%
     Rec.effect = RecRateTBR - RecRateTBF) -> df.RecEffects
 ```
 
-Now, to answer the question above we want to perform a series of Bonferroni corrected, one-sided, one-sample t-tests comparing the means of each cell of our experimental design to see if they are signifcantly greater than 0.  
-
-## By Condition
-
-```{r}
-# A Visual
-df.RecEffects %>%
-  group_by(enctype) %>%
-  summarize(meanRec.effect = mean(Rec.effect), semRec.effect = sd(Rec.effect)/sqrt(n())) %>%
-  ggplot(aes(x = enctype, y = meanRec.effect, fill = enctype)) + 
-  geom_bar(stat="identity") + 
-  geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, ymax = meanRec.effect + semRec.effect), width = 0.2) +
-  scale_fill_brewer(palette = "Set1") + scale_y_continuous(limits = c(0, .2)) +
-  ggtitle("Recollection Effect Across Cue Durations") +
-  ylab("Effect Size") + xlab("Cue Duration") + guides(fill=FALSE) +
-  theme(plot.title = element_text(hjust = 0.5))
-
-```
-
-
-```{r rec-effect_t-tests}
-# T-Tests by Condition
-Rec.onesecond   <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '1 Second'], 
-                          mu = 0, alternative = "greater")
-Rec.threesecond <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '3 Seconds'], 
-                          mu = 0, alternative = "greater")
-Rec.fivesecond  <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '5 Seconds'], 
-                          mu = 0, alternative = "greater")
-```
-
-Conclusions: 
-
-1.) Collapsed across `AgeGroup`, the `1 Second` Cue Duration Condition showed a Directed Recollection Effect signficantly greater than 0 (t(`r Rec.onesecond$parameter`) = `r round(Rec.onesecond$statistic, digits = 2)`, p < `r if(Rec.onesecond$p.value < .001) (.001)`).  
-
-2.) Collapsed across `AgeGroup`, the `3 Second` Cue Duration Condition showed a Directed Recollection Effect signficantly greater than 0 (t(`r Rec.threesecond$parameter`) = `r round(Rec.threesecond$statistic, digits = 2)`, p < `r if(Rec.threesecond$p.value < .001) (.001)`).  
-
-3.) Collapsed across `AgeGroup`, the `5 Second` Cue Duration Condition showed a Directed Recollection Effect signficantly greater than 0 (t(`r Rec.fivesecond$parameter`) = `r round(Rec.fivesecond$statistic, digits = 2)`, p < `r if(Rec.fivesecond$p.value < .001) (.001)`).  
-
-## By Age Group
-
-```{r}
-# A Visual
-df.RecEffects %>%
-  group_by(AgeGroup) %>%
-  summarize(meanRec.effect = mean(Rec.effect), semRec.effect = sd(Rec.effect)/sqrt(n())) %>%
-  ggplot(aes(x = AgeGroup, y = meanRec.effect, fill = AgeGroup)) + 
-  geom_bar(stat="identity") + 
-  geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, ymax = meanRec.effect + semRec.effect), width = 0.2) +
-  scale_fill_brewer(palette = "Set2") +
-  scale_y_continuous(limits = c(0, .2)) +
-  ggtitle("Recollection Effect Across Age Group") +
-  ylab("Effect Size") + xlab("Age Group") + #guides(fill=FALSE) +
-  theme(plot.title = element_text(hjust = 0.5))
-
-```
-
-
-```{r}
-# T-Tests by Age Group
-Rec.YA.test   <- t.test(df.RecEffects$Rec.effect[df.RecEffects$AgeGroup == 'Young'], mu = 0, alternative = "greater")
-Rec.OA.test   <- t.test(df.RecEffects$Rec.effect[df.RecEffects$AgeGroup == 'Old'], mu = 0, alternative = "greater")
-```
-
-Conclusions: 
-
-1.) Collapsed across `enctype`, `Young Adults` showed a Directed Recollection Effect signifcantly greater than 0 (t(`r Rec.YA.test$parameter`) = `r round(Rec.YA.test$statistic, digits = 2)`, p < `r if(Rec.OA.test$p.value < .001) (.001)`).  
-
-2.) Collapsed across `enctype`, the `Older Adults` showed a Directed Recollection Effect signifcantly greater than 0 (t(`r Rec.OA.test$parameter`) = `r round(Rec.OA.test$statistic, digits = 2)`, p < `r if(Rec.OA.test$p.value < .001) (.001)`).  
-
 ## By Condition By Age Group
 
 ```{r}
@@ -410,7 +368,7 @@ Conclusions:
 df.RecEffects %>%
   group_by(enctype, AgeGroup) %>%
   summarize(meanRec.effect = mean(Rec.effect), semRec.effect = sd(Rec.effect)/sqrt(n())) %>%
-  ggplot(aes(x = enctype, y = meanRec.effect, fill = AgeGroup)) + 
+  ggplot(aes(x = AgeGroup, y = meanRec.effect, fill = enctype)) + 
   geom_bar(stat="identity", position = "dodge") + 
   geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, ymax = meanRec.effect + semRec.effect), width = 0.2, position = position_dodge(.9)) + 
   scale_fill_brewer(palette = "Set2") + 
@@ -420,55 +378,43 @@ df.RecEffects %>%
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-
-```{r}
-# T-Tests by Age Group by Condition
-Rec.YA.onesecond   <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '1 Second'
-                                                & df.RecEffects$AgeGroup == 'Young'], 
-                             mu = 0, alternative = "greater")
-Rec.YA.threesecond <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '3 Seconds' 
-                                                & df.RecEffects$AgeGroup == 'Young'], 
-                             mu = 0, alternative = "greater")
-Rec.YA.fivesecond  <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '5 Seconds' 
-                                                & df.RecEffects$AgeGroup == 'Young'], 
-                             mu = 0, alternative = "greater")
-
-Rec.OA.onesecond  <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '1 Second' 
-                                                & df.RecEffects$AgeGroup == 'Old'], 
-                            mu = 0, alternative = "greater")
-Rec.OA.threesecond <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '3 Seconds' 
-                                                & df.RecEffects$AgeGroup == 'Old'], 
-                             mu = 0, alternative = "greater")
-Rec.OA.fivesecond <- t.test(df.RecEffects$Rec.effect[df.RecEffects$enctype == '5 Seconds' 
-                                               & df.RecEffects$AgeGroup == 'Old'], 
-                            mu = 0, alternative = "greater")
-```
-
-Each Experimental Cell displayed a Rec-Effect that was signnifcantly GREATER than 0
-
-1.) `OA 1 Second` (t(`r Rec.OA.onesecond$parameter`) = `r round(Rec.OA.onesecond$statistic, digits = 2)`, p = `r round(Rec.OA.onesecond$p.value, digits = 3)`)  
-2.) `YA 1 Second` (t(`r Rec.YA.onesecond$parameter`) = `r round(Rec.YA.onesecond$statistic, digits = 2)`, p = `r round(Rec.YA.onesecond$p.value, digits = 3)`)  
-3.) `OA 3 Seconds` (t(`r Rec.OA.threesecond$parameter`) = `r round(Rec.OA.threesecond$statistic, digits = 2)`, p < `r if(Rec.OA.threesecond$p.value < .001) (.001)`)  
-4.) `YA 3 Seconds` (t(`r Rec.YA.threesecond$parameter`) = `r round(Rec.YA.threesecond$statistic, digits = 2)`, p < `r if(Rec.YA.threesecond$p.value < .001) (.001)`)  
-5.) `OA 5 Seconds` (t(`r Rec.OA.fivesecond$parameter`) = `r round(Rec.OA.fivesecond$statistic, digits = 2)`, p < `r if(Rec.OA.fivesecond$p.value < .001) (.001)`)  
-6.) `YA 5 Seconds` (t(`r Rec.YA.fivesecond$parameter`) = `r round(Rec.YA.fivesecond$statistic, digits = 2)`, p < `r if(Rec.YA.fivesecond$p.value < .001) (.001)`) 
-
 The results of the **Age Group x Cue Duration ANOVA** breakdown as follows:
 
 ```{r}
+# set sum to zero contrasts for Type III sums of squares calculation
+contrasts(df.RecEffects$AgeGroup) <- contr.sum(nlevels(df.RecEffects$AgeGroup))
+contrasts(df.RecEffects$enctype)  <- contr.sum(nlevels(df.RecEffects$enctype))
+
 # ANOVA
-m <- aov(Rec.effect ~ AgeGroup + AgeGroup*enctype + Error(subject/(enctype)), data = df.RecEffects)
+m <- aov(Rec.effect ~ AgeGroup*enctype + Error(subject/enctype), data = df.RecEffects)
 
 # Summarize, break into between and repeated factors
-object   <- summary(m)
-Rec.between  <- object$`Error: subject`[[1]]
-Rec.repeated <- object$`Error: subject:enctype`[[1]]
-object
+summary(m, intercept = T)
 ```
 
 1.) The main effect of `AgeGroup` is **NOT** signifcant (F(`r Rec.between$Df[[1]]`) = `r round(Rec.between$'F value'[[1]], digits = 2)`, p = `r round(Rec.between$'Pr(>F)'[[1]], digits = 2)`).  
 2.) The main effect of `CueDuration` **IS** significant (F(`r Rec.repeated$Df[[1]]`) = `r round(Rec.repeated$'F value'[[1]], digits = 2)`, p = `r round(Rec.repeated$'Pr(>F)'[[1]], digits = 2)`).  
 3.) The interaction between `AgeGroup` and `CueDuration` was **NOT** signifcant (F(`r Rec.repeated$Df[[2]]`) = `r round(Rec.repeated$'F value'[[2]], digits = 2)`, p = `r round(Rec.repeated$'Pr(>F)'[[2]], digits = 2)`).  
+
+```{r}
+# a prori tests against zero
+
+require(emmeans)
+
+emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.RE
+
+summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
+```
+
+```{r}
+# a posterior contrasts for linear and quadratic effects
+
+require(emmeans)
+
+emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.RE
+
+contrast(EMMEANS.RE, method = 'poly', by = 'AgeGroup')
+```
 
 ## With Cog Asses Score
 
@@ -476,9 +422,9 @@ How do the results change when we add cognitive assessment score as a factor int
 
 ```{r, warning=FALSE}
 # A Visual
-cog.assess.composites <- select(df.demographics, SUBJECT, BASELINE_COGITIVE_ABILITY)
+cog.assess.composites <- select(df.demographics.z, SUBJECT, COMPOSITEZSCORE)
 cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
-                                   composite = BASELINE_COGITIVE_ABILITY)
+                                   composite = COMPOSITEZSCORE)
 
 df.RecEffects <- left_join(df.RecEffects, cog.assess.composites, by = "subject")
 
@@ -486,20 +432,22 @@ ggplot(df.RecEffects, aes(y = Rec.effect, x = composite, colour = AgeGroup)) +
   scale_colour_brewer(palette = "Set2") + 
   geom_point() + 
   facet_grid(AgeGroup ~ enctype) + 
-  geom_smooth(method = "glm", se = FALSE, colour = "navyblue", linetype = "longdash") +
-  ggtitle("Recollection Effects as functions of Cue Duration, Age Group, and Cog Assess Score") + 
+  geom_smooth(method = "glm", se = FALSE, formula = y ~ x, colour = "navyblue", linetype = "longdash") +
+  labs(title = "Recollection Effects", 
+       subtitle = "As a function of Cue Duration, Age Group, and Cog Assess Score") + 
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
 When considering baseline cognitive assessment score (i.e., `composite`), we need to run a **Generalized Linear Model (GLM)**, entering in our between subjects factor `AgeGroup`, within subjects factor `enctype`, and linear co-variate `composite`: 
 
-```{r rec.glm}
-
-GLM <- glm(data = df.RecEffects, Rec.effect ~ composite*AgeGroup*enctype, na.action = na.omit)
-anova(GLM, test = "F")
-
+```{r rec.regression}
+df.RecEffects %>%
+  group_by(AgeGroup, enctype) %>%
+  nest_legacy() %>%
+  mutate(regression = map(data, ~lm(Rec.effect ~ composite, data = .x))) %>%
+  mutate(regression.results = map(regression, broom::tidy)) %>%
+  unnest_legacy(regression.results) %>%
+  mutate(p.value = round(p.value, digits = 3))
 ```
 
 **CONCLUSIONS:**  
-
-- The only signifcant predictor of the Recollection Effect was the baseline cognitive assessment `composite` score. :/  
