@@ -19,6 +19,8 @@ For the purposes of this notebook, I will be using the `tidyverse` and `knitr` p
 ```{r libraries, message=FALSE, warning=FALSE}
 library('tidyverse')
 library('knitr')
+library('emmeans')
+library('kableExtra')
 ```
 
 # Load Data
@@ -253,7 +255,7 @@ The results of the **Age Group x Cue Duration ANOVA** breakdown as follows:
 
 ```{r ANOVA}
 # ANOVA
-m <- aov(DF.effect ~ AgeGroup*enctype + Error(subject/(enctype)), data = df.DFeffects)
+m <- aov(DF.effect ~ AgeGroup*enctype + Error(subject/enctype), data = df.DFeffects)
 
 # Summarize, break into between and repeated factors
 object   <- summary(m)
@@ -274,7 +276,7 @@ object
 require(emmeans)
 emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.DF
 
-summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni')
+summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
 ```
 
 Observing the table above, it appears that there is a statistically significant DF effect for both AgeGroups in the 3 and 5 second conditions. There is NOT, however, a statistically significant effect for either AgeGroup in the 1 Second Cue duration group.  
@@ -313,17 +315,26 @@ ggplot(df.DFeffects, aes(y = DF.effect, x = composite, colour = AgeGroup)) +
 Run a linear regression model with all three predictors.  
 
 ```{r regression}
+regression.model <- lm(DF.effect ~ AgeGroup*enctype*composite, data = df.DFeffects)
 
-regression.model <- aov(DF.effect ~ AgeGroup*enctype*composite, data = df.DFeffects)
-
-summary(regression.model)
-
+anova(regression.model)
 ```
 
-**CONCLUSIONS:**
+```{r}
+require(kableExtra)
 
-- It looks like the baseline cognitive assessment `composite`, `AgeGroup`, and `enctype` all signifcantly predict the DF-Effect.  
-- Unfortunetly, it looks like that **NONE** of the interaction effects reach signifcance. Thus there is NO evidence for our `AgeGroup` x `EncType` x `composite` story. :/  
+df.DFeffects %>%
+  group_by(AgeGroup, enctype) %>%
+  nest_legacy() %>%
+  mutate(regression = map(data, ~lm(DF.effect ~ composite, data = .x))) %>%
+  mutate(regression.results = map(regression, broom::tidy)) %>%
+  unnest_legacy(regression.results) %>%
+  mutate_if(is.double, round, digits = 3) %>%
+  kable(caption = 'DF Effect Linear Regressions within Groups') %>%
+  kable_styling() %>%
+  collapse_rows(columns = c(1,2), valign = 'top')
+```
+
 
 # Rec Effect
 
@@ -389,12 +400,8 @@ contrasts(df.RecEffects$enctype)  <- contr.sum(nlevels(df.RecEffects$enctype))
 m <- aov(Rec.effect ~ AgeGroup*enctype + Error(subject/enctype), data = df.RecEffects)
 
 # Summarize, break into between and repeated factors
-summary(m, intercept = T)
+summary(m)
 ```
-
-1.) The main effect of `AgeGroup` is **NOT** signifcant (F(`r Rec.between$Df[[1]]`) = `r round(Rec.between$'F value'[[1]], digits = 2)`, p = `r round(Rec.between$'Pr(>F)'[[1]], digits = 2)`).  
-2.) The main effect of `CueDuration` **IS** significant (F(`r Rec.repeated$Df[[1]]`) = `r round(Rec.repeated$'F value'[[1]], digits = 2)`, p = `r round(Rec.repeated$'Pr(>F)'[[1]], digits = 2)`).  
-3.) The interaction between `AgeGroup` and `CueDuration` was **NOT** signifcant (F(`r Rec.repeated$Df[[2]]`) = `r round(Rec.repeated$'F value'[[2]], digits = 2)`, p = `r round(Rec.repeated$'Pr(>F)'[[2]], digits = 2)`).  
 
 ```{r}
 # a prori tests against zero
@@ -432,22 +439,30 @@ ggplot(df.RecEffects, aes(y = Rec.effect, x = composite, colour = AgeGroup)) +
   scale_colour_brewer(palette = "Set2") + 
   geom_point() + 
   facet_grid(AgeGroup ~ enctype) + 
-  geom_smooth(method = "glm", se = FALSE, formula = y ~ x, colour = "navyblue", linetype = "longdash") +
+  geom_smooth(method = "glm", se = TRUE, formula = y ~ x, colour = "navyblue", linetype = "longdash") +
   labs(title = "Recollection Effects", 
        subtitle = "As a function of Cue Duration, Age Group, and Cog Assess Score") + 
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-When considering baseline cognitive assessment score (i.e., `composite`), we need to run a **Generalized Linear Model (GLM)**, entering in our between subjects factor `AgeGroup`, within subjects factor `enctype`, and linear co-variate `composite`: 
+```{r}
+regression.model <- lm(Rec.effect ~ AgeGroup*enctype*composite, data = df.RecEffects)
+
+anova(regression.model)
+```
+
 
 ```{r rec.regression}
+require(kableExtra)
+
 df.RecEffects %>%
   group_by(AgeGroup, enctype) %>%
   nest_legacy() %>%
   mutate(regression = map(data, ~lm(Rec.effect ~ composite, data = .x))) %>%
   mutate(regression.results = map(regression, broom::tidy)) %>%
   unnest_legacy(regression.results) %>%
-  mutate(p.value = round(p.value, digits = 3))
+  mutate_if(is.double, round, digits = 3) %>%
+  kable(caption = 'Rec Effect Linear Regressions within Groups') %>%
+  kable_styling() %>%
+  collapse_rows(columns = c(1,2), valign = 'top')
 ```
-
-**CONCLUSIONS:**  
