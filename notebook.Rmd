@@ -286,7 +286,16 @@ contrast(EMMEANS.DF, method = 'poly', by = 'AgeGroup')
 ```
 
 ```{r}
-# Is there a difference in the effects for YAs and OAs?
+# Is the linear effect statistically different from the quadratic effect?
+
+contrast(EMMEANS.DF, method = list(linear = c(-1, 0, 1),
+                                   quadratic = c(1, -2, 1),
+                                   linear_vs_quadratic = c(0, -2, 2)), 
+         by = 'AgeGroup')
+```
+
+```{r}
+# Is there a difference in the linear / quadratic effects for YAs and OAs?
 
 contrast(EMMEANS.DF, interaction = c('poly', 'consec'))
 ```
@@ -423,6 +432,16 @@ emmeans(m, ~ enctype + AgeGroup) -> EMMEANS.RE
 
 contrast(EMMEANS.RE, method = 'poly', by = 'AgeGroup')
 ```
+
+```{r}
+# Is the linear effect statistically different from the quadratic effect?
+
+contrast(EMMEANS.RE, method = list(linear = c(-1, 0, 1),
+                                   quadratic = c(1, -2, 1),
+                                   linear_vs_quadratic = c(0, -2, 2)), 
+         by = 'AgeGroup')
+```
+
 
 ```{r}
 # Is there a difference in the effects between YAs and OAs?
