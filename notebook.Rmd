@@ -187,7 +187,6 @@ table1.demographics[10,1] <- "COMPOSITE"
 
 # Display the Table
 table1.demographics
-
 ```
 
 Kyle's Notes:  
@@ -268,7 +267,7 @@ object
 2.) The main effect of `CueDuration` **IS** significant (F(`r DF.repeated$Df[[1]]`) = `r round(DF.repeated$'F value'[[1]], digits = 2)`, p < `r if(DF.repeated$'Pr(>F)'[[1]] < .001) (.001)`).  
 3.) The interaction between `AgeGroup` and `CueDuration` was **NOT** signifcant (F(`r DF.repeated$Df[[2]]`) = `r round(DF.repeated$'F value'[[2]], digits = 2)`, p = `r round(DF.repeated$'Pr(>F)'[[2]], digits = 2)`).  
 
-```{r}
+```{r message=FALSE}
 # A prori tests using EMMEANS
 
 # Question: is there a Directed Forgetting Effect > 0 for each AgeGroup / Cue Duration?
@@ -281,7 +280,7 @@ summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
 
 Observing the table above, it appears that there is a statistically significant DF effect for both AgeGroups in the 3 and 5 second conditions. There is NOT, however, a statistically significant effect for either AgeGroup in the 1 Second Cue duration group.  
 
-```{r}
+```{r message=FALSE}
 # a posterior contrasts using EMMEANS
 
 # Is there a linear effect in OAs? A Quadratic effect in YAs?
@@ -403,7 +402,7 @@ m <- aov(Rec.effect ~ AgeGroup*enctype + Error(subject/enctype), data = df.RecEf
 summary(m)
 ```
 
-```{r}
+```{r message=FALSE}
 # a prori tests against zero
 
 require(emmeans)
@@ -413,7 +412,7 @@ emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.RE
 summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
 ```
 
-```{r}
+```{r message=FALSE}
 # a posterior contrasts for linear and quadratic effects
 
 require(emmeans)
