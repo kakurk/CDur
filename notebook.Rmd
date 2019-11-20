@@ -379,8 +379,11 @@ df.RecEffects %>%
   group_by(enctype, AgeGroup) %>%
   summarize(meanRec.effect = mean(Rec.effect), semRec.effect = sd(Rec.effect)/sqrt(n())) %>%
   ggplot(aes(x = AgeGroup, y = meanRec.effect, fill = enctype)) + 
-  geom_bar(stat="identity", position = "dodge") + 
-  geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, ymax = meanRec.effect + semRec.effect), width = 0.2, position = position_dodge(.9)) + 
+  geom_bar(stat="identity", position = position_dodge(width = .95)) + 
+  geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, 
+                    ymax = meanRec.effect + semRec.effect), 
+                width = 0.2, 
+                position = position_dodge(width = .95)) + 
   scale_fill_brewer(palette = "Set2") + 
   scale_y_continuous(limits = c(0, .2)) + 
   ggtitle("Recollection Effect Across Experiment") + 
