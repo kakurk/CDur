@@ -226,9 +226,9 @@ df.DFeffects %>%
     DF.effect = MissRateTBF - MissRateTBR) -> df.DFeffects
 ```
 
-Now, to answer the question above we want to perform a series of Bonferroni corrected, one-sided, one-sample t-tests comparing the means of each cell of our experimental design to see if they are signifcantly greater than 0.  
-
 ## By Condition By Age Group
+
+A figure of the results:  
 
 ```{r}
 # A Visual
@@ -250,7 +250,7 @@ df.DFeffects %>%
         axis.text.x = element_text(size = 12))
 ```
 
-The results of the **Age Group x Cue Duration ANOVA** breakdown as follows:  
+The **Age Group x Cue Duration ANOVA** table:  
 
 ```{r ANOVA}
 # ANOVA
@@ -263,6 +263,8 @@ DF.repeated <- object$`Error: subject:enctype`[[1]]
 object
 ```
 
+Using `emmeans`, calculating the one sample t-test of each mean in the graph above with zero:  
+
 ```{r message=FALSE}
 # A prori tests using EMMEANS
 
@@ -273,6 +275,8 @@ emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.DF
 
 summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
 ```
+
+Testing the linear and quadratic trends within each Age Group:
 
 ```{r message=FALSE}
 # a posterior contrasts using EMMEANS
@@ -285,6 +289,8 @@ emmeans(m, ~ enctype + AgeGroup) -> EMMEANS.DF
 contrast(EMMEANS.DF, method = 'poly', by = 'AgeGroup')
 ```
 
+Kyle's attempt at comparing the linear and quadratic contrasts within each Age Group:  
+
 ```{r}
 # Is the linear effect statistically different from the quadratic effect?
 
@@ -294,13 +300,13 @@ contrast(EMMEANS.DF, method = list(linear = c(-1, 0, 1),
          by = 'AgeGroup')
 ```
 
+Comparing the linear and quadratic effects **across Age Groups**:  
+
 ```{r}
 # Is there a difference in the linear / quadratic effects for YAs and OAs?
 
 contrast(EMMEANS.DF, interaction = c('poly', 'consec'))
 ```
-
-There is a significant linear trend for YAs and OAs and a significant quadratic trend for YAs. This difference is not statistically significant.  
 
 ## With Cog Assess Score
 
@@ -326,6 +332,8 @@ df.DFeffects %>%
                 linetype = "longdash")
 ```
 
+A regression of DF.effect on Cue Duration and Composite Cog Assess Score within OAs only:  
+
 ```{r regression}
 # Is there an interaction between AgeGroup and composite Cog Assess score
 
@@ -335,6 +343,8 @@ regression.model <- lm(DF.effect ~ enctype*composite,
 
 anova(regression.model)
 ```
+
+A series of regressions within each cell of our experimental design:  
 
 ```{r}
 require(kableExtra)
@@ -389,6 +399,8 @@ df.RecEffects %>%
 
 ## By Condition By Age Group
 
+A visual of the results:  
+
 ```{r}
 # A Visual
 df.RecEffects %>%
@@ -407,7 +419,7 @@ df.RecEffects %>%
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-The results of the **Age Group x Cue Duration ANOVA** breakdown as follows:
+The **Age Group x Cue Duration ANOVA** table:  
 
 ```{r}
 # set sum to zero contrasts for Type III sums of squares calculation
@@ -421,6 +433,8 @@ m <- aov(Rec.effect ~ AgeGroup*enctype + Error(subject/enctype), data = df.RecEf
 summary(m)
 ```
 
+A series of bonferroni correct T-tests of each mean presented above with zero:  
+
 ```{r message=FALSE}
 # a prori tests against zero
 
@@ -430,6 +444,8 @@ emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.RE
 
 summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
 ```
+
+A test of the linear and quadratic trends within each Age Group:
 
 ```{r message=FALSE}
 # Is there a linear or quadratic effect for YAs and OAs?
@@ -441,6 +457,8 @@ emmeans(m, ~ enctype + AgeGroup) -> EMMEANS.RE
 contrast(EMMEANS.RE, method = 'poly', by = 'AgeGroup')
 ```
 
+Kyle's attempt at contrasting the linear an quadratic effects above:  
+
 ```{r}
 # Is the linear effect statistically different from the quadratic effect?
 
@@ -450,6 +468,7 @@ contrast(EMMEANS.RE, method = list(linear = c(-1, 0, 1),
          by = 'AgeGroup')
 ```
 
+Is the linear/quadratic effect of Cue Duration different between the Age Groups? 
 
 ```{r}
 # Is there a difference in the effects between YAs and OAs?
@@ -485,6 +504,8 @@ ggplot(aes(y = Rec.effect, x = composite, colour = AgeGroup)) +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
+A regression model of Rec.effect predicted by Cur Duration and Composite Cog Assess score within OAs only:  
+
 ```{r}
 # Just for Older adults, is there a significant interaction between cue duration and composite score?
 
@@ -495,6 +516,7 @@ regression.model <- lm(Rec.effect ~ enctype*composite,
 anova(regression.model)
 ```
 
+A simple linear regression run within each cell of our experimental design:  
 
 ```{r rec.regression}
 require(kableExtra)
