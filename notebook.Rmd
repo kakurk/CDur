@@ -21,6 +21,8 @@ library('tidyverse')
 library('knitr')
 library('emmeans')
 library('kableExtra')
+library('magrittr')
+library('afex')
 ```
 
 # Load Data
@@ -107,7 +109,9 @@ CompositeVars <- c('SYMBOLSEARCH', 'DIGITSYMBOL', 'DIGITSPAN', 'ARITHMETIC', 'LN
 
 df.demographics %>%
   mutate(AgeGroup = str_extract(string = SUBJECT, pattern = '^[yo]'),
-         AgeGroup = factor(AgeGroup, levels = c('y', 'o'), labels = c('Young Adults', 'Old Adults'))) %>%
+         AgeGroup = factor(AgeGroup, 
+                           levels = c('y', 'o'), 
+                           labels = c('Young Adults', 'Old Adults'))) %>%
   group_by(AgeGroup) %>%
   mutate_at(CompositeVars, scale) %>%
   ungroup() %>%
@@ -160,7 +164,9 @@ Next, lets re-create the Demographics Summary Table:
 # take the demographics data frame and..
 df.demographics %>%
   mutate(AgeGroup = str_extract(SUBJECT, '^[oy]'),
-         AgeGroup = factor(AgeGroup, levels = c('y', 'o'), labels = c('Younger Adults', 'Old Adults'))) %>%
+         AgeGroup = factor(AgeGroup, 
+                           levels = c('y', 'o'), 
+                           labels = c('Younger Adults', 'Old Adults'))) %>%
   select(-SUBJECT) %>% # drop the SUBJECT variable
   group_by(AgeGroup) %>% # group by AgeGroup
   summarize_if(is.numeric, mean, na.rm = TRUE) %>% # Calculate a mean of every numeric variables
@@ -252,15 +258,15 @@ df.DFeffects %>%
 
 The **Age Group x Cue Duration ANOVA** table:  
 
-```{r ANOVA}
+```{r ANOVA, message=FALSE}
 # ANOVA
-m <- aov(DF.effect ~ AgeGroup*enctype + Error(subject/enctype), data = df.DFeffects)
+aov_car(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), 
+        data = df.DFeffects, 
+        factorize = T, 
+        include_aov = T) -> ANOVA1
 
 # Summarize, break into between and repeated factors
-object   <- summary(m)
-DF.between  <- object$`Error: subject`[[1]]
-DF.repeated <- object$`Error: subject:enctype`[[1]]
-object
+ANOVA1
 ```
 
 Using `emmeans`, calculating the one sample t-test of each mean in the graph above with zero:  
@@ -271,32 +277,18 @@ Using `emmeans`, calculating the one sample t-test of each mean in the graph abo
 # Question: is there a Directed Forgetting Effect > 0 for each AgeGroup / Cue Duration?
 
 require(emmeans)
-emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.DF
+emmeans(ANOVA1$aov, ~ enctype + AgeGroup) -> EMMEANS.DF
 
 summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
 ```
 
 Testing the linear and quadratic trends within each Age Group:
 
-```{r message=FALSE}
-# a posterior contrasts using EMMEANS
-
-# Is there a linear effect in OAs? A Quadratic effect in YAs?
-
-require(emmeans)
-emmeans(m, ~ enctype + AgeGroup) -> EMMEANS.DF
-
-contrast(EMMEANS.DF, method = 'poly', by = 'AgeGroup')
-```
-
-Kyle's attempt at comparing the linear and quadratic contrasts within each Age Group:  
-
 ```{r}
-# Is the linear effect statistically different from the quadratic effect?
+# Is there a linear effect, a quadratic effect, or a 'pleatau' effect?
 
 contrast(EMMEANS.DF, method = list(linear = c(-1, 0, 1),
-                                   quadratic = c(1, -2, 1),
-                                   linear_vs_quadratic = c(0, -2, 2)), 
+                                   pleatau = c(-2, 1, 1)), 
          by = 'AgeGroup')
 ```
 
@@ -304,8 +296,12 @@ Comparing the linear and quadratic effects **across Age Groups**:
 
 ```{r}
 # Is there a difference in the linear / quadratic effects for YAs and OAs?
+custom_con.emmc <- function(levels){
+  data.frame(`linear` = c(-1, 0, 1),
+             `pleatau` = c(-2, 1, 1))
+}
 
-contrast(EMMEANS.DF, interaction = c('poly', 'consec'))
+contrast(EMMEANS.DF, interaction = c('custom_con', 'consec'))
 ```
 
 ## With Cog Assess Score
@@ -337,28 +333,32 @@ A regression of DF.effect on Cue Duration and Composite Cog Assess Score within 
 ```{r regression}
 # Is there an interaction between AgeGroup and composite Cog Assess score
 
-regression.model <- lm(DF.effect ~ enctype*composite, 
-                       data = df.DFeffects,
-                        subset = df.DFeffects$AgeGroup == 'Old')
+ANCOVA <- aov_car(DF.effect ~ enctype*composite + Error(subject/enctype), 
+                  data = df.DFeffects %>% filter(AgeGroup == 'Old'), 
+                  factorize = F, 
+                  include_aov = T)
 
-anova(regression.model)
+ANCOVA
 ```
 
-A series of regressions within each cell of our experimental design:  
+```{r, warning=FALSE}
+# evaluate the trends
+emtrends(ANCOVA$aov, 
+         trt.vs.ctrlk ~ enctype, 
+         var = 'composite') %>%
+  test(adjust = 'none')
+```
 
-```{r}
-require(kableExtra)
+```{r, warning=FALSE}
+# A custom contast, comparing one and three seconds conditions with the 5 second condition
+custom_con.emmc <- function(levels){
+  data.frame(`onethree_v_five` = c(-1, -1, 2))
+}
 
-df.DFeffects %>%
-  group_by(AgeGroup, enctype) %>%
-  nest_legacy() %>%
-  mutate(regression = map(data, ~lm(DF.effect ~ composite, data = .x))) %>%
-  mutate(regression.results = map(regression, broom::tidy)) %>%
-  unnest_legacy(regression.results) %>%
-  mutate_if(is.double, round, digits = 3) %>%
-  kable(caption = 'DF Effect Linear Regressions within Groups') %>%
-  kable_styling() %>%
-  collapse_rows(columns = c(1,2), valign = 'top')
+# evaluate the trends
+emtrends(ANCOVA$aov, 
+         custom_con ~ enctype, 
+         var = 'composite')
 ```
 
 # Rec Effect
@@ -421,16 +421,12 @@ df.RecEffects %>%
 
 The **Age Group x Cue Duration ANOVA** table:  
 
-```{r}
-# set sum to zero contrasts for Type III sums of squares calculation
-contrasts(df.RecEffects$AgeGroup) <- contr.sum(nlevels(df.RecEffects$AgeGroup))
-contrasts(df.RecEffects$enctype)  <- contr.sum(nlevels(df.RecEffects$enctype))
-
+```{r, warning=FALSE, message=FALSE}
 # ANOVA
-m <- aov(Rec.effect ~ AgeGroup*enctype + Error(subject/enctype), data = df.RecEffects)
+ANOVA <- aov_car(Rec.effect ~ AgeGroup*enctype + Error(subject/enctype), data = df.RecEffects)
 
 # Summarize, break into between and repeated factors
-summary(m)
+ANOVA
 ```
 
 A series of bonferroni correct T-tests of each mean presented above with zero:  
@@ -440,31 +436,17 @@ A series of bonferroni correct T-tests of each mean presented above with zero:
 
 require(emmeans)
 
-emmeans(m, ~ AgeGroup + enctype) -> EMMEANS.RE
+emmeans(ANOVA$aov, ~ enctype + AgeGroup) -> EMMEANS.RE
 
 summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
 ```
-
-A test of the linear and quadratic trends within each Age Group:
-
-```{r message=FALSE}
-# Is there a linear or quadratic effect for YAs and OAs?
-
-require(emmeans)
-
-emmeans(m, ~ enctype + AgeGroup) -> EMMEANS.RE
-
-contrast(EMMEANS.RE, method = 'poly', by = 'AgeGroup')
-```
-
-Kyle's attempt at contrasting the linear an quadratic effects above:  
 
 ```{r}
 # Is the linear effect statistically different from the quadratic effect?
 
 contrast(EMMEANS.RE, method = list(linear = c(-1, 0, 1),
                                    quadratic = c(1, -2, 1),
-                                   linear_vs_quadratic = c(0, -2, 2)), 
+                                   pleatau = c(-2, 1, 1)), 
          by = 'AgeGroup')
 ```
 
@@ -473,7 +455,13 @@ Is the linear/quadratic effect of Cue Duration different between the Age Groups?
 ```{r}
 # Is there a difference in the effects between YAs and OAs?
 
-contrast(EMMEANS.RE, interaction = c('poly', 'consec'))
+custom_con.emmc <- function(levels){
+  data.frame(`linear` = c(-1,0,1),
+             `quadratic` = c(1,-2,1),
+             `pleatau` = c(-2, 1, 1))
+}
+
+contrast(EMMEANS.RE, interaction = c('custom_con', 'consec'))
 ```
 
 ## With Cog Asses Score
@@ -493,7 +481,7 @@ df.RecEffects %>%
 ggplot(aes(y = Rec.effect, x = composite, colour = AgeGroup)) + 
   scale_colour_brewer(palette = "Set2") + 
   geom_point() + 
-  facet_grid(AgeGroup ~ enctype) + 
+  facet_grid(. ~ enctype) + 
   geom_smooth(method = "glm", 
               se = TRUE, 
               formula = y ~ x, 
@@ -507,28 +495,31 @@ ggplot(aes(y = Rec.effect, x = composite, colour = AgeGroup)) +
 A regression model of Rec.effect predicted by Cur Duration and Composite Cog Assess score within OAs only:  
 
 ```{r}
-# Just for Older adults, is there a significant interaction between cue duration and composite score?
+# Is there an interaction between AgeGroup and composite Cog Assess score
 
-regression.model <- lm(Rec.effect ~ enctype*composite, 
-                       data = df.RecEffects, 
-                       subset = df.RecEffects$AgeGroup == 'Old')
+ANCOVA <- aov_car(Rec.effect ~ enctype*composite + Error(subject/enctype), 
+                  data = df.RecEffects %>% filter(AgeGroup == 'Old'), 
+                  factorize = F, 
+                  include_aov = T)
 
-anova(regression.model)
+ANCOVA
 ```
 
-A simple linear regression run within each cell of our experimental design:  
+```{r, warning=FALSE}
+# evaluate the trends
+emtrends(ANCOVA$aov, 
+         trt.vs.ctrlk ~ enctype, 
+         var = 'composite') %>%
+  test(adjust = 'none')
+```
 
-```{r rec.regression}
-require(kableExtra)
+```{r, warning=FALSE}
+# A custom contast, comparing one and three seconds conditions with the 5 second condition
+custom_con.emmc <- function(levels){
+  data.frame(`onethree_v_five` = c(-1, -1, 2))
+}
 
-df.RecEffects %>%
-  group_by(AgeGroup, enctype) %>%
-  nest_legacy() %>%
-  mutate(regression = map(data, ~lm(Rec.effect ~ composite, data = .x))) %>%
-  mutate(regression.results = map(regression, broom::tidy)) %>%
-  unnest_legacy(regression.results) %>%
-  mutate_if(is.double, round, digits = 3) %>%
-  kable(caption = 'Rec Effect Linear Regressions within Groups') %>%
-  kable_styling() %>%
-  collapse_rows(columns = c(1,2), valign = 'top')
+# evaluate the trends
+emtrends(ANCOVA$aov, custom_con ~ enctype, var = 'composite') %>%
+  test(adjust = 'none')
 ```
