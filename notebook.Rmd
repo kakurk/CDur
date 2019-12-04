@@ -263,10 +263,10 @@ The **Age Group x Cue Duration ANOVA** table:
 aov_car(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), 
         data = df.DFeffects, 
         factorize = T, 
-        include_aov = T) -> ANOVA1
+        include_aov = T) -> ANOVA
 
 # Summarize, break into between and repeated factors
-ANOVA1
+ANOVA
 ```
 
 Using `emmeans`, calculating the one sample t-test of each mean in the graph above with zero:  
@@ -277,7 +277,7 @@ Using `emmeans`, calculating the one sample t-test of each mean in the graph abo
 # Question: is there a Directed Forgetting Effect > 0 for each AgeGroup / Cue Duration?
 
 require(emmeans)
-emmeans(ANOVA1$aov, ~ enctype + AgeGroup) -> EMMEANS.DF
+emmeans(ANOVA$aov, ~ enctype + AgeGroup) -> EMMEANS.DF
 
 summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
 ```
@@ -288,7 +288,7 @@ Testing the linear and quadratic trends within each Age Group:
 # Is there a linear effect, a quadratic effect, or a 'pleatau' effect?
 
 contrast(EMMEANS.DF, method = list(linear = c(-1, 0, 1),
-                                   pleatau = c(-2, 1, 1)), 
+                                   pleatau = c(-2, 1, 1)),
          by = 'AgeGroup')
 ```
 
@@ -302,6 +302,24 @@ custom_con.emmc <- function(levels){
 }
 
 contrast(EMMEANS.DF, interaction = c('custom_con', 'consec'))
+```
+
+```{r}
+df.DFeffects %>%
+  mutate(enctype.L = recode(enctype, 
+                            `1 Second` = -1,
+                            `3 Seconds` = 0,
+                            `5 Seconds` = 1),
+         enctype.P = recode(enctype, 
+                            `1 Second` = -2,
+                            `3 Seconds` = 1,
+                            `5 Seconds` = 1)) -> DATA
+
+Linear.Model  <- lm(DF.effect ~ enctype.L, data = DATA, subset = DATA$AgeGroup == 'Young')
+Pleatau.Model <- lm(DF.effect ~ enctype.P, data = DATA, subset = DATA$AgeGroup == 'Young')
+
+bind_rows(broom::glance(Linear.Model), broom::glance(Pleatau.Model), .id = 'model') %>%
+  mutate(model = factor(model, levels = c(1,2), labels = c('Linear', 'Pleatau')))
 ```
 
 ## With Cog Assess Score
