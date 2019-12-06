@@ -7,7 +7,6 @@ output:
     code_folding: hide  
     toc: true
     toc_float: true
-    number_sections: true
 params:
   datapath: ~/Documents/MATLAB/githubrepos/personal-repos/CDur/data/
 ---
@@ -155,7 +154,7 @@ df.all %>%
   ) -> df.all
 ```
 
-# Demographics Summary
+# Table 1: Demographics Summary
 
 ```{r demographics_summary, warning=FALSE}
 
@@ -217,11 +216,6 @@ table1.demographics %>%
            title_format = 'bold')
 ```
 
-Kyle's Notes:  
-
-- All of the above summary statistics are the mean of each measure for each age group  
-- The Younger Adults did NOT complete the MMSE, so their score appears here as `NaN`  
-
 # DF-Effect
 
 The first question we want to answer statistically: Do we see the `Directed-Forgetting Effect` in ANY of our experimental conditions?
@@ -254,9 +248,7 @@ df.DFeffects %>%
     DF.effect = MissRateTBF - MissRateTBR) -> df.DFeffects
 ```
 
-## By Condition By Age Group
-
-A figure of the results:  
+## Figure 1: Directed Forgetting Results
 
 ```{r}
 # A Visual
@@ -292,6 +284,13 @@ ANOVA
 ```
 
 Using `emmeans`, calculating the one sample t-test of each mean in the graph above with zero:  
+
+```{r, message=FALSE}
+# Are the mean DF-effects within each Age Group significantly different from 0?
+emmeans(ANOVA$aov, ~ AgeGroup) %>% 
+  test()
+```
+
 
 ```{r message=FALSE}
 # A prori tests using EMMEANS
@@ -344,7 +343,7 @@ bind_rows(broom::glance(Linear.Model), broom::glance(Pleatau.Model), .id = 'mode
   mutate(model = factor(model, levels = c(1,2), labels = c('Linear', 'Pleatau')))
 ```
 
-## With Cog Assess Score
+## Figure 2: Directed Forgetting and Cog Assess Composite
 
 What do our results look like when we consider baseline cognitive assessment score?
 
