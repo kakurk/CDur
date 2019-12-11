@@ -206,7 +206,10 @@ bind_rows(table1.demographics, FEMALE, NN) %>%
 names(table1.demographics)[2] <- str_c(names(table1.demographics)[2], footnote_marker_symbol(1))
 
 table1.demographics %>%
-  kable(format = 'html', escape = F) %>%
+  kable(format = 'html', 
+        booktabs = T,
+        escape = F, 
+        caption = 'Table 1: Participant Demographics') %>%
   kable_styling() %>%
   footnote(general_title ='\n\nTable 1. ',
            general = 'mean (sd). N = size of sample, AGE = age in years , FEMALE = number of female participants, EDUCATION = years of education. See text for description of the cognitive assessment measures and the calculation of the composite score.\n\n', 
@@ -306,6 +309,12 @@ emmeans(ANOVA, ~ enctype + AgeGroup) -> EMMEANS.DF
 
 summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
 ```
+
+```{r}
+# All pairwise comparisons, within each age group
+pairs(EMMEANS.DF, by = 'AgeGroup')
+```
+
 
 Testing the linear and quadratic trends within each Age Group:
 
