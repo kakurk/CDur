@@ -262,13 +262,24 @@ df.DFeffects %>%
                 position = position_dodge(width = .95)) + 
   scale_fill_brewer(palette = "Set2") + 
   scale_y_continuous(limits = c(0, NA), expand = c(0, 0, .05, 0)) + 
-  ggtitle("Directed Forgetting Effect Across Experiment") + 
+  ggtitle("Directed Forgetting Effect") + 
   ylab("Effect Size") + xlab("Age Group") + 
   labs(fill = 'Cue Duration') +
   theme(plot.title = element_text(hjust = 0.5), 
         axis.ticks.x = element_blank(), 
-        axis.text.x = element_text(size = 12))
+        axis.text.x = element_text(size = 12)) -> p
+
+p
 ```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggsave('~/Documents/MATLAB/githubrepos/personal-repos/CDur/figures/Figure3.png', 
+      dpi = 300, 
+      width = 7,
+      height = 5,
+      units = 'in')
+```
+
 
 The **Age Group x Cue Duration ANOVA** table:  
 
@@ -370,14 +381,26 @@ df.DFeffects <- left_join(df.DFeffects, cog.assess.composites, by = "subject")
 df.DFeffects %>% 
   filter(AgeGroup == 'Old') %>%
   ggplot(aes(y = DF.effect, x = composite, colour = AgeGroup)) + 
-    scale_colour_brewer(palette = "Set2") + 
+    scale_colour_brewer(palette = "Set2", guide = FALSE) + 
     geom_point() + 
     facet_grid(. ~ enctype) + 
     geom_smooth(method = "lm", 
                 formula = y ~ x, 
                 se = TRUE, 
                 colour = "navyblue", 
-                linetype = "longdash")
+                linetype = "longdash") +
+  labs(y = 'Effect Size',
+       x = 'Composite Cognitive Assessment Score',
+       title = 'Individual Differences Among Older Adults',
+       subtitle = 'Directed Forgetting Effect')
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggsave('~/Documents/MATLAB/githubrepos/personal-repos/CDur/figures/Figure5.png', 
+      dpi = 300, 
+      width = 7,
+      height = 5,
+      units = 'in')
 ```
 
 A regression of DF.effect on Cue Duration and Composite Cog Assess Score within OAs only:  
@@ -464,10 +487,21 @@ df.RecEffects %>%
                 width = 0.2, 
                 position = position_dodge(width = .95)) + 
   scale_fill_brewer(palette = "Set2") + 
-  scale_y_continuous(limits = c(0, .2)) + 
-  ggtitle("Recollection Effect Across Experiment") + 
-  ylab("Effect Size") + xlab("Cue Duration") + 
-  theme(plot.title = element_text(hjust = 0.5))
+  scale_y_continuous(limits = c(0, 0.2145549), expand = c(0, 0, .05, 0)) + 
+  ggtitle("Recollection Effect") + 
+  ylab("Effect Size") + xlab("Age Group") + 
+  labs(fill = 'Cue Duration') +
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.ticks.x = element_blank(), 
+        axis.text.x = element_text(size = 12))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggsave('~/Documents/MATLAB/githubrepos/personal-repos/CDur/figures/Figure4.png', 
+      dpi = 300, 
+      width = 7,
+      height = 5,
+      units = 'in')
 ```
 
 The **Age Group x Cue Duration ANOVA** table:  
