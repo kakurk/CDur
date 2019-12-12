@@ -260,13 +260,15 @@ df.DFeffects %>%
   summarize(meanDF.effect = mean(DF.effect), semDF.effect = sd(DF.effect)/sqrt(n())) %>%
   ggplot(aes(x = AgeGroup, y = meanDF.effect, group = enctype, fill = enctype)) + 
   geom_bar(stat="identity", position = position_dodge(width = .95)) + 
-  geom_errorbar(aes(ymin = meanDF.effect - semDF.effect, ymax = meanDF.effect + semDF.effect), 
+  geom_errorbar(aes(ymin = meanDF.effect - semDF.effect, 
+                    ymax = meanDF.effect + semDF.effect), 
                 width = 0.2, 
                 position = position_dodge(width = .95)) + 
   scale_fill_brewer(palette = "Set2") + 
   scale_y_continuous(limits = c(0, NA), expand = c(0, 0, .05, 0)) + 
   ggtitle("Directed Forgetting Effect") + 
-  ylab("Effect Size") + xlab("Age Group") + 
+  ylab("Effect Size") + 
+  xlab("Age Group") + 
   labs(fill = 'Cue Duration') +
   theme(plot.title = element_text(hjust = 0.5), 
         axis.ticks.x = element_blank(), 
@@ -443,6 +445,34 @@ emtrends(ANCOVA,
          custom_con ~ enctype, 
          var = 'composite')
 ```
+
+```{r, warning=FALSE, message=FALSE}
+M           <- mean(OAonly.df$composite)
+SD          <- sd(OAonly.df$composite)
+M.plus.1SD  <- M + SD
+M.minus.1SD <- M - SD
+
+emmeans(ANCOVA, ~ enctype | composite, 
+        at = list(composite = c(M.minus.1SD, M, M.plus.1SD))) %>%
+  as.data.frame() %>%
+  mutate_at('composite', factor, labels = c('M - 1SD', 'M', 'M + 1SD')) -> EMMEANS.at.CovLevels
+
+ggplot(EMMEANS.at.CovLevels, aes(x = enctype, y = emmean, ymax = upper.CL, ymin = lower.CL, fill = enctype)) +
+  geom_col() +
+  scale_fill_brewer(palette = "Set2") + 
+  geom_errorbar(width = .2) +
+  facet_grid(~composite, labeller = label_both) +
+  labs(title = 'Directed Forgetting in Older Adults',
+       subtitle = 'As a function of Cognitive Reserve',
+       y = 'Estimate Effect Size',
+       x = 'Cue Duration',
+       fill = 'Cue Duration') +
+    theme(plot.title = element_text(hjust = 0.5), 
+          axis.ticks.x = element_blank(), 
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank())
+```
+
 
 # Rec Effect
 
