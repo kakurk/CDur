@@ -457,22 +457,33 @@ emmeans(ANCOVA, ~ enctype | composite,
   as.data.frame() %>%
   mutate_at('composite', factor, labels = c('M - 1SD', 'M', 'M + 1SD')) -> EMMEANS.at.CovLevels
 
-ggplot(EMMEANS.at.CovLevels, aes(x = enctype, y = emmean, ymax = upper.CL, ymin = lower.CL, fill = enctype)) +
+ggplot(EMMEANS.at.CovLevels, 
+       aes(x = enctype, 
+           y = emmean, 
+           ymax = upper.CL, 
+           ymin = lower.CL, 
+           fill = enctype)) +
   geom_col() +
   scale_fill_brewer(palette = "Set2") + 
   geom_errorbar(width = .2) +
   facet_grid(~composite, labeller = label_both) +
-  labs(title = 'Directed Forgetting in Older Adults',
-       subtitle = 'As a function of Cognitive Reserve',
+  labs(title = 'Individual Differences in Directed Forgetting in Older Adults',
+       subtitle = 'As a Function of Cognitive Reserve',
        y = 'Estimate Effect Size',
        x = 'Cue Duration',
        fill = 'Cue Duration') +
-    theme(plot.title = element_text(hjust = 0.5), 
-          axis.ticks.x = element_blank(), 
+    theme(axis.ticks.x = element_blank(), 
           axis.text.x = element_blank(),
           axis.title.x = element_blank())
 ```
 
+```{r}
+ggsave('~/Documents/MATLAB/githubrepos/personal-repos/CDur/figures/Figure5-alt.png', 
+      dpi = 300, 
+      width = 7,
+      height = 5,
+      units = 'in')
+```
 
 # Rec Effect
 
