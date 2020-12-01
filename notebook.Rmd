@@ -8,7 +8,7 @@ output:
     toc: true
     toc_float: true
 params:
-  datapath: ~/Documents/MATLAB/githubrepos/personal-repos/CDur/data/
+  datapath: C:\Users\kylea\OneDrive\Desktop\CDur\data\
 ---
 
 # Loading Libraries
@@ -278,7 +278,7 @@ p
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-ggsave('~/Documents/MATLAB/githubrepos/personal-repos/CDur/figures/Figure3.png', 
+ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure3.png', 
       dpi = 300, 
       width = 7,
       height = 5,
@@ -294,6 +294,18 @@ ANOVA <- aov(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.
  
 summary(ANOVA)
 ```
+
+```{r, warning=FALSE}
+df.DFeffects %>% 
+  group_by(AgeGroup, subject) %>% 
+  summarise(DF.effect = mean(DF.effect)) %>% 
+  group_by(AgeGroup) %>% 
+  nest() %>% 
+  mutate(TESTRES = map(data, ~t.test(formula = DF.effect ~ 1, data = .x, alternative = 'greater') %>% broom::tidy())) %>% 
+  unnest(TESTRES) %>% 
+  select(-data)
+```
+
 
 Using `emmeans`, calculating the one sample t-test of each mean in the graph above with zero:  
 
@@ -407,7 +419,7 @@ df.DFeffects %>%
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-ggsave('~/Documents/MATLAB/githubrepos/personal-repos/CDur/figures/Figure5.png', 
+ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure5.png', 
       dpi = 300, 
       width = 7,
       height = 5,
@@ -478,7 +490,7 @@ ggplot(EMMEANS.at.CovLevels,
 ```
 
 ```{r}
-ggsave('~/Documents/MATLAB/githubrepos/personal-repos/CDur/figures/Figure5-alt.png', 
+ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\Figure5-alt.png', 
       dpi = 300, 
       width = 7,
       height = 5,
@@ -547,7 +559,7 @@ df.RecEffects %>%
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-ggsave('~/Documents/MATLAB/githubrepos/personal-repos/CDur/figures/Figure4.png', 
+ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure4.png', 
       dpi = 300, 
       width = 7,
       height = 5,
