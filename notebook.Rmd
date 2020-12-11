@@ -29,7 +29,7 @@ library('afex')
 Load the raw data into R from the datapath directory input at the top of the notebook.
 
 ```{r load}
-# Initalize variables
+# Initialize variables
 datapath           <- params$datapath
 ya_raw_data_file   <- paste0(datapath, "ya_raw_data.csv")
 oa_raw_data_file   <- paste0(datapath, "oa_raw_data.csv")
@@ -285,7 +285,6 @@ ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure3.png',
       units = 'in')
 ```
 
-
 The **Age Group x Cue Duration ANOVA** table:  
 
 ```{r ANOVA, message=FALSE}
@@ -294,8 +293,11 @@ ANOVA <- aov(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.
  
 summary(ANOVA)
 ```
+The "separate t-tests" way:  
 
 ```{r, warning=FALSE}
+# average over the cue duration conditions
+# run a one-sample t-test separately for OAs and YAs 
 df.DFeffects %>% 
   group_by(AgeGroup, subject) %>% 
   summarise(DF.effect = mean(DF.effect)) %>% 
@@ -306,8 +308,7 @@ df.DFeffects %>%
   select(-data)
 ```
 
-
-Using `emmeans`, calculating the one sample t-test of each mean in the graph above with zero:  
+Using `emmeans` and pooled error variance estimate, calculating the one sample t-test of each mean in the graph above with zero:  
 
 ```{r, message=FALSE}
 # Is the mean DF-effect within each Age Group collapsed across Cue Duration significantly different from 0?
@@ -329,15 +330,12 @@ summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
 pairs(EMMEANS.DF, by = 'AgeGroup')
 ```
 
-
 Testing the linear and quadratic trends within each Age Group:
 
 ```{r}
-# Is there a linear effect, a quadratic effect, or a 'pleatau' effect?
+# Is there a linear effect, a quadratic effect, or a 'plateau' effect?
 
-contrast(EMMEANS.DF, method = list(linear = c(-1, 0, 1),
-                                   pleatau = c(-1, .5, .5)),
-         by = 'AgeGroup')
+contrast(EMMEANS.DF, method = 'poly', by = 'AgeGroup')
 ```
 
 Comparing the linear and quadratic effects **across Age Groups**:  
@@ -499,7 +497,7 @@ ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\Figure5-alt.png',
 
 # Rec Effect
 
-A second question we would like to answer is this: is there a signifcant `Recollection Effect`? The Recollection Effects operationalized as:  
+A second question we would like to answer is this: is there a significant `Recollection Effect`? The Recollection Effects operationalized as:  
 
 `TBR-Rec - TBF-Rec`
 
@@ -574,6 +572,17 @@ ANOVA <- aov(Rec.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df
 
 # Summarize, break into between and repeated factors
 summary(ANOVA)
+```
+
+```{r}
+df.RecEffects %>%
+  group_by(AgeGroup, subject) %>%
+  summarise(Rec.effect = mean(Rec.effect)) %>%
+  group_by(AgeGroup) %>%
+  nest() %>%
+  mutate(TESTRES = map(data, ~t.test(Rec.effect ~ 1, data = .x, alternative = 'greater') %>% broom::tidy())) %>%
+  unnest(TESTRES) %>%
+  select(-data)
 ```
 
 ```{r, message=FALSE}
