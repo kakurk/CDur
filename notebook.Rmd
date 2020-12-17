@@ -656,7 +656,7 @@ emtrends(ANCOVA$aov,
 ```
 
 ```{r}
-# A custom contrast, comparing one and three seconds conditions with the 5 second condition
+# A custom contrast, comparing one and three seconds conditions with the five second condition
 custom_con.emmc <- function(levels){
   data.frame(`onethree_v_five` = c(-1, -1, 2))
 }
@@ -668,9 +668,10 @@ emtrends(ANCOVA$aov, custom_con ~ enctype, var = 'composite') %>%
 
 # Correlation Amongst Measures
 
-Correlation Matrix between all of the cognitive assessment tasks.
+Correlation Matrix between all of the cognitive assessment tasks for Older Adults.  
 
 ```{r}
+# calculate correlation matrix
 df.DFeffects %>%
   group_by(AgeGroup, subject) %>%
   summarise(across(DF.effect, mean)) %>%
@@ -680,21 +681,39 @@ df.demographics %>%
   left_join(Mean.OA.DF.Effects, by = c('SUBJECT' = 'subject')) %>%
   filter(AGE > 60) -> OA.Only.Demo.Df
 
-nrow(OA.Only.Demo.Df)
+order <- c('SYMBOLSEARCH', 'DIGITSYMBOL', 'DIGITSPAN', 'ARITHMETIC', 'LNSEQUENCING', 'VOCAB', 'MMSE', 'AGE', 'DF.effect')
 
 OA.Only.Demo.Df %>%
   select(MMSE:VOCAB, AGE, DF.effect) %>%
-  corrr::correlate(quiet = T) %>%
+  corrr::correlate(quiet = T) -> CorMat.df
+```
+
+```{r}
+# reorganize and pretty print
+CorMat.df %>%
+  select(rowname, all_of(order)) %>%
+  column_to_rownames() %>%
+  magrittr::extract(order,order) %>%
+  rownames_to_column() %>%
   corrr::fashion()
+```
 
-OA.Only.Demo.Df %>%
-  select(MMSE:VOCAB, AGE, DF.effect) %>%
-  corrr::correlate(quiet = T) %>%
+
+```{r}
+# correlation matrix visual
+CorMat.df %>%
   corrr::stretch() %>%
   ggplot(aes(x,y,fill = r)) +
   geom_raster() +
   scale_fill_distiller(palette = 'YlOrRd') +
+  scale_x_discrete(limits = order) +
+  scale_y_discrete(limits = rev(order)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-  theme(axis.title = element_blank())
+  theme(axis.title = element_blank()) +
+  theme(axis.ticks = element_blank()) +
+  theme(panel.grid = element_blank()) +
+  theme(panel.background = element_blank()) +
+  labs(title = 'Composite Score Correlation Matrix',
+       subtitle = 'Older Adults')
 ```
 
