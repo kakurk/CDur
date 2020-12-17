@@ -3,19 +3,25 @@ title: "Memory Cue Duration and Directed Forgetting"
 author: "Kyle Kurkela and Nancy Dennis"
 date: '`r Sys.Date()`'
 output: 
-  html_notebook:
-    code_folding: hide  
-    toc: true
-    toc_float: true
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_float: yes
 params:
-  datapath: C:\Users\kylea\OneDrive\Desktop\CDur\data\
+  rootpath: C:\Users\kylea\OneDrive\Desktop\CDur\
 ---
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
 
 # Loading Libraries
 
 For the purposes of this notebook, I will be using the `tidyverse` and `knitr` packages.
 
-```{r libraries, message=FALSE, warning=FALSE}
+
+```{r libraries}
 library('tidyverse')
 library('knitr')
 library('emmeans')
@@ -26,16 +32,17 @@ library('afex')
 
 # Load Data
 
-Load the raw data into R from the datapath directory input at the top of the notebook.
+Load the raw data into R from the `datapath` directory input at the top of the notebook.  
 
 ```{r load}
 # Initialize variables
-datapath           <- params$datapath
-ya_raw_data_file   <- paste0(datapath, "ya_raw_data.csv")
-oa_raw_data_file   <- paste0(datapath, "oa_raw_data.csv")
-demo_raw_data_file <- paste0(datapath, "demographics.csv")
+rootpath           <- params$rootpath
+datapath           <- file.path(rootpath, 'data')
+ya_raw_data_file   <- file.path(datapath, "ya_raw_data.csv")
+oa_raw_data_file   <- file.path(datapath, "oa_raw_data.csv")
+demo_raw_data_file <- file.path(datapath, "demographics.csv")
 
-# Load data into dataframes
+# Load data into data frames
 df.young        <- read.csv(ya_raw_data_file, quote = "\'")
 df.old          <- read.csv(oa_raw_data_file, quote = "\'")
 df.demographics <- read.csv(demo_raw_data_file, quote = "\'")
@@ -56,9 +63,9 @@ df.demographics <- filter(df.demographics, SUBJECT != 'o307')
 
 In this section of the notebook, we will be cleaning up the demographics data by:  
 
-1. Droping empty variables.  
+1. Dropping empty variables.  
 2. Creating the `EDUCATION_yrs` variable, which calculates the `EDUCATION` variable in terms of years of schooling.  
-3. Forcing the `AGE` and `SEX` variables to follow the all capitialization variable naming convention of this notebook.  
+3. Forcing the `AGE` and `SEX` variables to follow the all capitalization variable naming convention of this notebook.  
 4. Compute the composite `BASELINE_COGITIVE_ABILITY` variable by calculating the mean (rounded to 2 decimal points) of the each subject's Symbol Search, Digit-Symbol, Arithmetic, Letter-Number Sequencing, and Vocabulary scores. 
 
 ```{r clean_demographics_data}
@@ -92,29 +99,24 @@ df.demographics %>%
 colnames(df.demographics)[10:11] <- c("AGE", "SEX")
 
 # Calculating Cognitive Assessment Composite Score
+CogAssessMeasures <- c('SYMBOLSEARCH', 'DIGITSYMBOL', 'DIGITSPAN', 'ARITHMETIC', 'LNSEQUENCING', 'VOCAB')
 df.demographics %>%
   rowwise() %>%
-  mutate(BASELINE_COGITIVE_ABILITY = mean(c(SYMBOLSEARCH, 
-                                            DIGITSYMBOL, 
-                                            DIGITSPAN, 
-                                            ARITHMETIC, 
-                                            LNSEQUENCING, 
-                                            VOCAB), na.rm = TRUE),
+  mutate(BASELINE_COGITIVE_ABILITY = mean(c_across(all_of(CogAssessMeasures)), na.rm = T),
          BASELINE_COGITIVE_ABILITY = round(BASELINE_COGITIVE_ABILITY, digits = 2)) %>%
   ungroup() -> df.demographics
 
 # Calculate the Composite Z score
-CompositeVars <- c('SYMBOLSEARCH', 'DIGITSYMBOL', 'DIGITSPAN', 'ARITHMETIC', 'LNSEQUENCING', 'VOCAB')
-
 df.demographics %>%
   mutate(AgeGroup = str_extract(string = SUBJECT, pattern = '^[yo]'),
          AgeGroup = factor(AgeGroup, 
                            levels = c('y', 'o'), 
                            labels = c('Young Adults', 'Old Adults'))) %>%
   group_by(AgeGroup) %>%
-  mutate_at(CompositeVars, scale) %>%
+  mutate(across(all_of(CogAssessMeasures), scale)) %>%
   ungroup() %>%
-  mutate(COMPOSITEZSCORE = pmap_dbl(select(., one_of(CompositeVars)), lift_vd(mean))) -> df.demographics.z
+  rowwise() %>%
+  mutate(COMPOSITEZSCORE = mean(c_across(all_of(CogAssessMeasures)), na.rm = T)) -> df.demographics.z
 ```
 
 ## Raw Experimental Data
@@ -122,10 +124,10 @@ df.demographics %>%
 In this section of the notebook we will be cleaning the raw experimental data by:  
 
 1. Concatenating the young and old data and creating a new variable `AgeGroup`.    
-2. Dropping the extra jitter varaiable.  
+2. Dropping the extra jitter variable.  
 3. Making the numeric coding of variables `enctype`, `score`, `Response`, `type`, and `AgeGroup` into factors with informative level names.  
 
-```{r concatenate_and_clean, warning=FALSE}
+```{r concatenate_and_clean}
 # concatenate
 df.all <- bind_rows(list(df.young, df.old), .id = "AgeGroup")
 
@@ -156,7 +158,7 @@ df.all %>%
 
 # Table 1: Demographics Summary
 
-```{r demographics_summary, warning=FALSE}
+```{r demographics_summary}
 
 # take the demographics data frame and tidy it
 df.demographics %>%
@@ -168,8 +170,8 @@ df.demographics %>%
 
 df.demographics.tidy %>%
   group_by(AgeGroup) %>%
-  summarise_if(is.numeric, c('mean', 'sd'), na.rm = T) %>%
-  mutate_if(is.numeric, round, digits = 2) %>%
+  summarise(across(where(is.numeric), list(mean = mean, sd = sd), na.rm = T)) %>%
+  mutate(across(where(is.numeric), round, digits = 2)) %>%
   pivot_longer(names_to='Measure', values_to = 'value', -AgeGroup, values_drop_na = T) %>%
   separate(col = Measure, sep = '_(?=(sd)|(mean))', into = c('Measure', 'statistic')) %>% 
   pivot_wider(names_from = statistic, values_from = value) %>%
@@ -184,7 +186,7 @@ df.demographics.tidy %>%
   mutate_at('SEX', ~recode(.x, 'Female' = 1, 'Male' = 0)) %>%
   rename('FEMALE' = 'SEX') %>%
   group_by(AgeGroup) %>%
-  summarise_at('FEMALE', sum) %>%
+  summarise(across(FEMALE, sum)) %>%
   pivot_longer(FEMALE, names_to = 'Measure', values_to = 'cellvalue') %>%
   mutate_at('cellvalue', as.character) %>%
   pivot_wider(names_from = AgeGroup, values_from = cellvalue) -> FEMALE
@@ -256,18 +258,13 @@ df.DFeffects %>%
 ```{r}
 # A Visual
 df.DFeffects %>%
-  group_by(enctype, AgeGroup) %>%
-  summarize(meanDF.effect = mean(DF.effect), semDF.effect = sd(DF.effect)/sqrt(n())) %>%
-  ggplot(aes(x = AgeGroup, y = meanDF.effect, group = enctype, fill = enctype)) + 
-  geom_bar(stat="identity", position = position_dodge(width = .95)) + 
-  geom_errorbar(aes(ymin = meanDF.effect - semDF.effect, 
-                    ymax = meanDF.effect + semDF.effect), 
-                width = 0.2, 
-                position = position_dodge(width = .95)) + 
+  ggplot(aes(x = AgeGroup, y = DF.effect, group = enctype, fill = enctype)) + 
+  stat_summary(geom = 'bar', fun.data = mean_se, position = position_dodge(width = .95)) + 
+  stat_summary(geom = 'errorbar', fun.data = mean_se, width = 0.2, position = position_dodge(width = .95)) + 
   scale_fill_brewer(palette = "Set2") + 
-  scale_y_continuous(limits = c(0, NA), expand = c(0, 0, .05, 0)) + 
+  scale_y_continuous(expand = c(0, 0, .05, 0)) + 
   ggtitle("Directed Forgetting Effect") + 
-  ylab("Effect Size") + 
+  ylab("TBR-R - TBF-R") + 
   xlab("Age Group") + 
   labs(fill = 'Cue Duration') +
   theme(plot.title = element_text(hjust = 0.5), 
@@ -277,8 +274,8 @@ df.DFeffects %>%
 p
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure3.png', 
+```{r, echo=FALSE}
+ggsave(file.path(rootpath, 'figures', 'Figure3.png'), 
       dpi = 300, 
       width = 7,
       height = 5,
@@ -287,15 +284,16 @@ ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure3.png',
 
 The **Age Group x Cue Duration ANOVA** table:  
 
-```{r ANOVA, message=FALSE}
+```{r ANOVA}
 # ANOVA
 ANOVA <- aov(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.DFeffects)
  
 summary(ANOVA)
 ```
+
 The "separate t-tests" way:  
 
-```{r, warning=FALSE}
+```{r}
 # average over the cue duration conditions
 # run a one-sample t-test separately for OAs and YAs 
 df.DFeffects %>% 
@@ -310,16 +308,15 @@ df.DFeffects %>%
 
 Using `emmeans` and pooled error variance estimate, calculating the one sample t-test of each mean in the graph above with zero:  
 
-```{r, message=FALSE}
+```{r}
 # Is the mean DF-effect within each Age Group collapsed across Cue Duration significantly different from 0?
 emmeans(ANOVA, ~ AgeGroup) %>% 
   test(side = '>', adj = 'bonferroni')
 ```
 
-```{r message=FALSE}
+```{r}
 # Is there a Directed Forgetting Effect > 0 for each AgeGroup | Cue Duration?
 
-require(emmeans)
 emmeans(ANOVA, ~ enctype + AgeGroup) -> EMMEANS.DF
 
 summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
@@ -392,7 +389,7 @@ bind_rows(broom::glance(Linear.Model), broom::glance(Pleatau.Model), .id = 'mode
 
 What do our results look like when we consider baseline cognitive assessment score?
 
-```{r Visual, warning=FALSE}
+```{r Visual}
 cog.assess.composites <- select(df.demographics.z, SUBJECT, COMPOSITEZSCORE)
 cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
                                    composite = COMPOSITEZSCORE)
@@ -410,14 +407,14 @@ df.DFeffects %>%
                 se = TRUE, 
                 colour = "navyblue", 
                 linetype = "longdash") +
-  labs(y = 'Effect Size',
+  labs(y = 'TBR-R - TBF-R',
        x = 'Composite Cognitive Assessment Score',
        title = 'Individual Differences Among Older Adults',
        subtitle = 'Directed Forgetting Effect')
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure5.png', 
+```{r, echo=FALSE}
+ggsave(file.path(rootpath, 'figures', 'Figure5.png'), 
       dpi = 300, 
       width = 7,
       height = 5,
@@ -436,7 +433,7 @@ ANCOVA <- aov(DF.effect ~ enctype*composite + Error(subject/enctype),
 summary(ANCOVA)
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r}
 # evaluate the trends
 emtrends(ANCOVA, 
          pairwise ~ enctype, 
@@ -444,8 +441,8 @@ emtrends(ANCOVA,
   test(adjust = 'bonferroni')
 ```
 
-```{r, warning=FALSE, message=FALSE}
-# A custom contast, comparing one and three seconds conditions with the 5 second condition
+```{r}
+# A custom contrast, comparing one and three seconds conditions with the 5 second condition
 custom_con.emmc <- function(levels){
   data.frame(`onethree_v_five` = c(-.5, -.5, 1))
 }
@@ -456,7 +453,7 @@ emtrends(ANCOVA,
          var = 'composite')
 ```
 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 M           <- mean(OAonly.df$composite)
 SD          <- sd(OAonly.df$composite)
 M.plus.1SD  <- M + SD
@@ -488,7 +485,7 @@ ggplot(EMMEANS.at.CovLevels,
 ```
 
 ```{r}
-ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\Figure5-alt.png', 
+ggsave(file.path(rootpath, 'figures', 'Figure5-alt.png'), 
       dpi = 300, 
       width = 7,
       height = 5,
@@ -538,16 +535,11 @@ A visual of the results:
 ```{r}
 # A Visual
 df.RecEffects %>%
-  group_by(enctype, AgeGroup) %>%
-  summarize(meanRec.effect = mean(Rec.effect), semRec.effect = sd(Rec.effect)/sqrt(n())) %>%
-  ggplot(aes(x = AgeGroup, y = meanRec.effect, fill = enctype)) + 
-  geom_bar(stat="identity", position = position_dodge(width = .95)) + 
-  geom_errorbar(aes(ymin = meanRec.effect - semRec.effect, 
-                    ymax = meanRec.effect + semRec.effect), 
-                width = 0.2, 
-                position = position_dodge(width = .95)) + 
+  ggplot(aes(x = AgeGroup, y = Rec.effect, fill = enctype)) + 
+  stat_summary(geom = 'bar', fun.data = mean_se, position = position_dodge(width = .95)) + 
+  stat_summary(geom = 'errorbar', fun.data = mean_se, width = 0.2, position = position_dodge(width = .95)) + 
   scale_fill_brewer(palette = "Set2") + 
-  scale_y_continuous(limits = c(0, 0.2145549), expand = c(0, 0, .05, 0)) + 
+  scale_y_continuous(expand = c(0, 0, .05, 0)) + 
   ggtitle("Recollection Effect") + 
   ylab("Effect Size") + xlab("Age Group") + 
   labs(fill = 'Cue Duration') +
@@ -556,8 +548,8 @@ df.RecEffects %>%
         axis.text.x = element_text(size = 12))
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure4.png', 
+```{r, echo=FALSE}
+ggsave(file.path(rootpath, 'figures', 'Figure4.png'), 
       dpi = 300, 
       width = 7,
       height = 5,
@@ -566,13 +558,15 @@ ggsave('C:\\Users\\kylea\\OneDrive\\Desktop\\CDur\\figures\\Figure4.png',
 
 The **Age Group x Cue Duration ANOVA** table:  
 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 # ANOVA
 ANOVA <- aov(Rec.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.RecEffects)
 
 # Summarize, break into between and repeated factors
 summary(ANOVA)
 ```
+
+Seperate one sample t-tests for each age group greater than zero:  
 
 ```{r}
 df.RecEffects %>%
@@ -585,8 +579,8 @@ df.RecEffects %>%
   select(-data)
 ```
 
-```{r, message=FALSE}
-# a prori tests against zero
+```{r}
+# a priori tests against zero
 
 require(emmeans)
 
@@ -595,8 +589,8 @@ emmeans(ANOVA, ~ AgeGroup) -> EMMEANS.RE
 summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
 ```
 
-```{r message=FALSE}
-# a prori tests against zero
+```{r}
+# a priori tests against zero
 
 require(emmeans)
 
@@ -616,7 +610,7 @@ contrast(EMMEANS.RE, method = list(linear = c(-1, 0, 1)),
 
 How do the results change when we add cognitive assessment score as a factor into our ANOVA?
 
-```{r, warning=FALSE}
+```{r}
 # A Visual
 cog.assess.composites <- select(df.demographics.z, SUBJECT, COMPOSITEZSCORE)
 cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
@@ -626,7 +620,7 @@ df.RecEffects <- left_join(df.RecEffects, cog.assess.composites, by = "subject")
 
 df.RecEffects %>%
   filter(AgeGroup == 'Old') %>%
-ggplot(aes(y = Rec.effect, x = composite, colour = AgeGroup)) + 
+  ggplot(aes(y = Rec.effect, x = composite, colour = AgeGroup)) + 
   scale_colour_brewer(palette = "Set2") + 
   geom_point() + 
   facet_grid(. ~ enctype) + 
@@ -653,7 +647,7 @@ ANCOVA <- aov_car(Rec.effect ~ enctype*composite + Error(subject/enctype),
 ANCOVA
 ```
 
-```{r, warning=FALSE}
+```{r}
 # evaluate the trends
 emtrends(ANCOVA$aov, 
          trt.vs.ctrlk ~ enctype, 
@@ -661,8 +655,8 @@ emtrends(ANCOVA$aov,
   test(adjust = 'none')
 ```
 
-```{r, warning=FALSE}
-# A custom contast, comparing one and three seconds conditions with the 5 second condition
+```{r}
+# A custom contrast, comparing one and three seconds conditions with the 5 second condition
 custom_con.emmc <- function(levels){
   data.frame(`onethree_v_five` = c(-1, -1, 2))
 }
@@ -671,3 +665,36 @@ custom_con.emmc <- function(levels){
 emtrends(ANCOVA$aov, custom_con ~ enctype, var = 'composite') %>%
   test(adjust = 'none')
 ```
+
+# Correlation Amongst Measures
+
+Correlation Matrix between all of the cognitive assessment tasks.
+
+```{r}
+df.DFeffects %>%
+  group_by(AgeGroup, subject) %>%
+  summarise(across(DF.effect, mean)) %>%
+  filter(AgeGroup == 'Old') -> Mean.OA.DF.Effects
+
+df.demographics %>%
+  left_join(Mean.OA.DF.Effects, by = c('SUBJECT' = 'subject')) %>%
+  filter(AGE > 60) -> OA.Only.Demo.Df
+
+nrow(OA.Only.Demo.Df)
+
+OA.Only.Demo.Df %>%
+  select(MMSE:VOCAB, AGE, DF.effect) %>%
+  corrr::correlate(quiet = T) %>%
+  corrr::fashion()
+
+OA.Only.Demo.Df %>%
+  select(MMSE:VOCAB, AGE, DF.effect) %>%
+  corrr::correlate(quiet = T) %>%
+  corrr::stretch() %>%
+  ggplot(aes(x,y,fill = r)) +
+  geom_raster() +
+  scale_fill_distiller(palette = 'YlOrRd') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme(axis.title = element_blank())
+```
+
