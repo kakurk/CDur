@@ -419,7 +419,7 @@ ggsave(file.path(rootpath, 'figures', 'Figure5.png'),
 ANCOVA of DF.effect on Cue Duration and Composite Cog Assess Score within OAs only:  
 
 ```{r regression}
-# Is there an interaction between AgeGroup and Composite Cog Assess score?
+# Is there an interaction between Age Group and Composite Cog Assess score?
 OAonly.df <- df.DFeffects %>% filter(AgeGroup == 'Old')
 
 ANCOVA <- aov(DF.effect ~ enctype*composite + Error(subject/enctype),
@@ -439,13 +439,15 @@ emtrends(ANCOVA,
 ```{r}
 # A custom contrast, comparing one and three seconds conditions with the 5 second condition
 custom_con.emmc <- function(levels){
-  data.frame(`onethree_v_five` = c(-.5, -.5, 1))
+  data.frame(`onethree_v_five` = c(-.5, -.5, 1),
+             `one_vs_three` = c(1, -1, 0))
 }
 
 # evaluate the trends
 emtrends(ANCOVA, 
          custom_con ~ enctype, 
-         var = 'composite')
+         var = 'composite') %>%
+  test()
 ```
 
 ```{r}
@@ -710,5 +712,26 @@ CorMat.df %>%
   theme(panel.background = element_blank()) +
   labs(title = 'Composite Score Correlation Matrix',
        subtitle = 'Older Adults')
+```
+
+# False Alarm Rates
+
+```{r}
+# Calculate False Alarm Rates
+df.all %>%
+  filter(enctype == "Lure") %>%
+  mutate(enctype = factor(enctype)) %>%
+  group_by(AgeGroup, enctype, type, subject) %>%
+  summarize(FARate = mean(score == "Know" | score == 'Remember')) %>% ungroup() -> df.FArates
+```
+
+```{r}
+ggplot(df.FArates, aes(x = AgeGroup, y = FARate)) +
+  stat_summary(geom = 'bar', fun.data = mean_se) +
+  stat_summary(geom = 'errorbar', fun.data = mean_se, width = 0.2)
+```
+
+```{r}
+t.test(FARate ~ AgeGroup, data = df.FArates, var.equal = T)
 ```
 
