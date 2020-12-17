@@ -339,12 +339,7 @@ Comparing the linear and quadratic effects **across Age Groups**:
 
 ```{r}
 # Is there a difference in the linear / quadratic effects for YAs and OAs?
-custom_con.emmc <- function(levels){
-  data.frame(`linear` = c(-1, 0, 1),
-             `pleatau` = c(-2, 1, 1))
-}
-
-contrast(EMMEANS.DF, interaction = c('custom_con', 'consec'))
+contrast(EMMEANS.DF, interaction = c('poly', 'consec'))
 ```
 
 ```{r}
@@ -421,7 +416,7 @@ ggsave(file.path(rootpath, 'figures', 'Figure5.png'),
       units = 'in')
 ```
 
-A regression of DF.effect on Cue Duration and Composite Cog Assess Score within OAs only:  
+ANCOVA of DF.effect on Cue Duration and Composite Cog Assess Score within OAs only:  
 
 ```{r regression}
 # Is there an interaction between AgeGroup and Composite Cog Assess score?
@@ -566,9 +561,9 @@ ANOVA <- aov(Rec.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df
 summary(ANOVA)
 ```
 
-Seperate one sample t-tests for each age group greater than zero:  
+Separate one sample t-tests for each age group greater than zero:  
 
-```{r}
+```{r paged.print=TRUE}
 df.RecEffects %>%
   group_by(AgeGroup, subject) %>%
   summarise(Rec.effect = mean(Rec.effect)) %>%
@@ -602,7 +597,7 @@ summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
 ```{r}
 # Is the linear effect statistically different from the quadratic effect?
 
-contrast(EMMEANS.RE, method = list(linear = c(-1, 0, 1)),
+contrast(EMMEANS.RE, method = 'poly',
          by = 'AgeGroup')
 ```
 
