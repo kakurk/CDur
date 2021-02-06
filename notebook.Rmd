@@ -8,10 +8,11 @@ output:
     toc: yes
     toc_float: yes
 params:
-  rootpath: C:\Users\kylea\OneDrive\Desktop\CDur\
+  rootpath: ~/Documents/MATLAB/githubrepos/personal-repos/CDur
 ---
 
 ```{r echo=FALSE}
+options(scipen = 10, digits = 4)
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
 ```
@@ -227,6 +228,13 @@ The first question we want to answer statistically: Do we see the `Directed-Forg
 
 First, lets calculate the `Directed-Forgetting Effect`:  
 
+$$DF_{Effect} = p(New|TBF) - p(New|TBR)$$
+
+where:  
+- New = "New" response during the recognition memory test  
+- TBF = Old Image that recieved a "To Be Forgotten" instruction during encoding  
+- TBR = Old Image that recieved a "To Be Remembered" instruction during encoding  
+
 ```{r DF_calculations}
 # Calculate the miss rates
 df.all %>%
@@ -235,7 +243,7 @@ df.all %>%
   group_by(AgeGroup, enctype, type, subject) %>%
   summarize(MissRate = mean(score == "New")) %>% ungroup() -> df.missrates
 
-# Break the dataframe into TBF and TBR
+# Break the dataframe into TBF and TBR trials
 df.missrates %>% filter(type == "To Be Forgotten") %>% select(-type) -> TBF.Forgotten
 df.missrates %>% filter(type == "To Be Remembered") %>% select(-type) -> TBR.Forgotten
 
@@ -264,7 +272,7 @@ df.DFeffects %>%
   scale_fill_brewer(palette = "Set2") + 
   scale_y_continuous(expand = c(0, 0, .05, 0)) + 
   ggtitle("Directed Forgetting Effect") + 
-  ylab("TBR-R - TBF-R") + 
+  ylab("DF Effect") + 
   xlab("Age Group") + 
   labs(fill = 'Cue Duration') +
   theme(plot.title = element_text(hjust = 0.5), 
@@ -282,73 +290,85 @@ ggsave(file.path(rootpath, 'figures', 'Figure3.png'),
       units = 'in')
 ```
 
-The **Age Group x Cue Duration ANOVA** table:  
-
-```{r ANOVA}
-# ANOVA
-ANOVA <- aov(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.DFeffects)
- 
-summary(ANOVA)
-```
-
-The "separate t-tests" way:  
+Check to see that both age groups showed an statistically significant DF-effect:
 
 ```{r}
 # average over the cue duration conditions
 # run a one-sample t-test separately for OAs and YAs 
+
+ttest_and_tidy <- function(dataframe){
+  test_result <- t.test(x = dataframe$DF.effect, mu = 0, alternative = 'greater')
+  test_result_tidy <- broom::tidy(test_result)
+  return(test_result_tidy)
+}
+
 df.DFeffects %>% 
   group_by(AgeGroup, subject) %>% 
   summarise(DF.effect = mean(DF.effect)) %>% 
-  group_by(AgeGroup) %>% 
   nest() %>% 
-  mutate(TESTRES = map(data, ~t.test(formula = DF.effect ~ 1, data = .x, alternative = 'greater') %>% broom::tidy())) %>% 
+  mutate(TESTRES = map(data, ttest_and_tidy)) %>% 
   unnest(TESTRES) %>% 
   select(-data)
 ```
 
-Using `emmeans` and pooled error variance estimate, calculating the one sample t-test of each mean in the graph above with zero:  
+Bonferroni corrected t-tests of each experimental group against zero:
 
 ```{r}
-# Is the mean DF-effect within each Age Group collapsed across Cue Duration significantly different from 0?
-emmeans(ANOVA, ~ AgeGroup) %>% 
-  test(side = '>', adj = 'bonferroni')
+ttest_and_tidy <- function(dataframe){
+  test_result <- t.test(x = dataframe$DF.effect, mu = 0, alternative = 'greater')
+  test_result_tidy <- broom::tidy(test_result)
+  return(test_result_tidy)
+}
+
+df.DFeffects %>%
+  group_by(AgeGroup, enctype) %>%
+  nest() %>%
+  mutate(TESTRES = map(data, ttest_and_tidy)) %>%
+  unnest(TESTRES) %>%
+  select(-data) %>%
+  # bonferroni corrected p values
+  mutate(p.value = p.adjust(p.value, method = 'bonferroni'))
 ```
 
-```{r}
-# Is there a Directed Forgetting Effect > 0 for each AgeGroup | Cue Duration?
+The **Age Group x Cue Duration ANOVA** table:  
 
-emmeans(ANOVA, ~ enctype + AgeGroup) -> EMMEANS.DF
+```{r ANOVA}
+# using polynomial contrast effects coding
+contrasts(df.DFeffects$enctype) <- contr.poly(3)
 
-summary(EMMEANS.DF, digits = 2, infer = T, adjust = 'bonferroni', side = '>')
-```
-
-```{r}
-# All pairwise comparisons, within each age group
-pairs(EMMEANS.DF, by = 'AgeGroup')
+# ANOVA
+ANOVA <- aov(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.DFeffects)
+ 
+summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
 ```
 
 Testing the linear and quadratic trends within each Age Group:
 
 ```{r}
-# Is there a linear effect, a quadratic effect, or a 'plateau' effect?
+# using polynomial contrast effects coding
+contrasts(df.DFeffects$enctype) <- contr.poly(3)
 
-contrast(EMMEANS.DF, method = 'poly', by = 'AgeGroup')
+ANOVA <- aov(DF.effect ~ enctype + Error(subject/enctype), data = df.DFeffects, subset = df.DFeffects$AgeGroup == 'Old')
+ 
+summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
 ```
 
-Comparing the linear and quadratic effects **across Age Groups**:  
-
 ```{r}
-# Is there a difference in the linear / quadratic effects for YAs and OAs?
-contrast(EMMEANS.DF, interaction = c('poly', 'consec'))
+# using a "pleatau" effect coding
+contrasts(df.DFeffects$enctype) <- matrix(c(-1, .5, .5, 0, 1, -1), nrow = 3)
+
+ANOVA <- aov(DF.effect ~ enctype + Error(subject/enctype), data = df.DFeffects, subset = df.DFeffects$AgeGroup == 'Young')
+ 
+summary(ANOVA, split = list(enctype = list(Pleatau = 1, ThreeVFive = 2)), expand.split = T)
 ```
 
 ```{r}
 df.DFeffects %>%
-  mutate(enctype.L = recode(enctype, 
+  mutate(enctype.L = recode(enctype,
                             `1 Second` = -1,
                             `3 Seconds` = 0,
                             `5 Seconds` = 1),
-         enctype.P = recode(enctype, 
+         enctype.P = recode(enctype,
                             `1 Second` = -1,
                             `3 Seconds` = .5,
                             `5 Seconds` = .5)) -> DATA
@@ -402,7 +422,7 @@ df.DFeffects %>%
                 se = TRUE, 
                 colour = "navyblue", 
                 linetype = "longdash") +
-  labs(y = 'TBR-R - TBF-R',
+  labs(y = 'DF-Effect',
        x = 'Composite Cognitive Assessment Score',
        title = 'Individual Differences Among Older Adults',
        subtitle = 'Directed Forgetting Effect')
@@ -418,84 +438,30 @@ ggsave(file.path(rootpath, 'figures', 'Figure5.png'),
 
 ANCOVA of DF.effect on Cue Duration and Composite Cog Assess Score within OAs only:  
 
-```{r regression}
+```{r}
 # Is there an interaction between Age Group and Composite Cog Assess score?
 OAonly.df <- df.DFeffects %>% filter(AgeGroup == 'Old')
+
+contrasts(OAonly.df$enctype) <- matrix(c(-.5, -.5, 1, 1, -1, 0), nrow = 3)
 
 ANCOVA <- aov(DF.effect ~ enctype*composite + Error(subject/enctype),
               data = OAonly.df)
 
-summary(ANCOVA)
-```
-
-```{r}
-# evaluate the trends
-emtrends(ANCOVA, 
-         pairwise ~ enctype, 
-         var = 'composite') %>%
-  test(adjust = 'bonferroni')
-```
-
-```{r}
-# A custom contrast, comparing one and three seconds conditions with the 5 second condition
-custom_con.emmc <- function(levels){
-  data.frame(`onethree_v_five` = c(-.5, -.5, 1),
-             `one_vs_three` = c(1, -1, 0))
-}
-
-# evaluate the trends
-emtrends(ANCOVA, 
-         custom_con ~ enctype, 
-         var = 'composite') %>%
-  test()
-```
-
-```{r}
-M           <- mean(OAonly.df$composite)
-SD          <- sd(OAonly.df$composite)
-M.plus.1SD  <- M + SD
-M.minus.1SD <- M - SD
-
-emmeans(ANCOVA, ~ enctype | composite, 
-        at = list(composite = c(M.minus.1SD, M, M.plus.1SD))) %>%
-  as.data.frame() %>%
-  mutate_at('composite', factor, labels = c('M - 1SD', 'M', 'M + 1SD')) -> EMMEANS.at.CovLevels
-
-ggplot(EMMEANS.at.CovLevels, 
-       aes(x = enctype, 
-           y = emmean, 
-           ymax = upper.CL, 
-           ymin = lower.CL, 
-           fill = enctype)) +
-  geom_col() +
-  scale_fill_brewer(palette = "Set2") + 
-  geom_errorbar(width = .2) +
-  facet_grid(~composite, labeller = label_both) +
-  labs(title = 'Individual Differences in Directed Forgetting in Older Adults',
-       subtitle = 'As a Function of Cognitive Reserve',
-       y = 'Estimate Effect Size',
-       x = 'Cue Duration',
-       fill = 'Cue Duration') +
-    theme(axis.ticks.x = element_blank(), 
-          axis.text.x = element_blank(),
-          axis.title.x = element_blank())
-```
-
-```{r}
-ggsave(file.path(rootpath, 'figures', 'Figure5-alt.png'), 
-      dpi = 300, 
-      width = 7,
-      height = 5,
-      units = 'in')
+summary(ANCOVA, split = list(enctype = list(Five_v_OneThree = 1, One_v_Three = 2)))
 ```
 
 # Rec Effect
 
 A second question we would like to answer is this: is there a significant `Recollection Effect`? The Recollection Effects operationalized as:  
 
-`TBR-Rec - TBF-Rec`
+$$Rec_{Effect} = p(R|TBR) - p(R|TBF)$$
 
-This measure is similar too, but different than, the DF-Effect.
+where:
+- R = trials where a recognition probe recieved a "Remember" response in Remember/Know/New recognition.  
+- TBR = recognition probes that were previously studied with a To Be Remembered instruction  
+- TBF = recognition probes that were previously studied with a To Be Forgotten instruction  
+
+This measure is similar too, but different than, the DF-Effect.  
 
 First, lets calculate the recollection effects:  
 
@@ -538,7 +504,7 @@ df.RecEffects %>%
   scale_fill_brewer(palette = "Set2") + 
   scale_y_continuous(expand = c(0, 0, .05, 0)) + 
   ggtitle("Recollection Effect") + 
-  ylab("Effect Size") + xlab("Age Group") + 
+  ylab("Rec-Effect") + xlab("Age Group") + 
   labs(fill = 'Cue Duration') +
   theme(plot.title = element_text(hjust = 0.5), 
         axis.ticks.x = element_blank(), 
@@ -556,111 +522,51 @@ ggsave(file.path(rootpath, 'figures', 'Figure4.png'),
 The **Age Group x Cue Duration ANOVA** table:  
 
 ```{r}
+# polynomical effects contrast coding
+contrasts(df.RecEffects$enctype) <- contr.poly(n = 3)
+
 # ANOVA
 ANOVA <- aov(Rec.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.RecEffects)
 
 # Summarize, break into between and repeated factors
-summary(ANOVA)
+summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = FALSE)
 ```
 
 Separate one sample t-tests for each age group greater than zero:  
 
 ```{r paged.print=TRUE}
+ttest_and_tidy <- function(dataframe){
+  # run a one sample t-test and tidy up the results
+  test_result <- t.test(x = dataframe$Rec.effect, mu = 0, alternative = 'greater')
+  test_result_tidy <- broom::tidy(test_result)
+  return(test_result_tidy)
+}
+
 df.RecEffects %>%
   group_by(AgeGroup, subject) %>%
   summarise(Rec.effect = mean(Rec.effect)) %>%
-  group_by(AgeGroup) %>%
   nest() %>%
-  mutate(TESTRES = map(data, ~t.test(Rec.effect ~ 1, data = .x, alternative = 'greater') %>% broom::tidy())) %>%
+  mutate(TESTRES = map(data, ttest_and_tidy)) %>%
   unnest(TESTRES) %>%
   select(-data)
 ```
 
 ```{r}
-# a priori tests against zero
-
-require(emmeans)
-
-emmeans(ANOVA, ~ AgeGroup) -> EMMEANS.RE
-
-summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
-```
-
-```{r}
-# a priori tests against zero
-
-require(emmeans)
-
-emmeans(ANOVA, ~ enctype + AgeGroup) -> EMMEANS.RE
-
-summary(EMMEANS.RE, infer = T, adjust = 'bonferroni', side = ">")
-```
-
-```{r}
-# Is the linear effect statistically different from the quadratic effect?
-
-contrast(EMMEANS.RE, method = 'poly',
-         by = 'AgeGroup')
-```
-
-## With Cog Asses Score
-
-How do the results change when we add cognitive assessment score as a factor into our ANOVA?
-
-```{r}
-# A Visual
-cog.assess.composites <- select(df.demographics.z, SUBJECT, COMPOSITEZSCORE)
-cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
-                                   composite = COMPOSITEZSCORE)
-
-df.RecEffects <- left_join(df.RecEffects, cog.assess.composites, by = "subject")
-
-df.RecEffects %>%
-  filter(AgeGroup == 'Old') %>%
-  ggplot(aes(y = Rec.effect, x = composite, colour = AgeGroup)) + 
-  scale_colour_brewer(palette = "Set2") + 
-  geom_point() + 
-  facet_grid(. ~ enctype) + 
-  geom_smooth(method = "glm", 
-              se = TRUE, 
-              formula = y ~ x, 
-              colour = "navyblue", 
-              linetype = "longdash") +
-  labs(title = "Recollection Effects", 
-       subtitle = "As a function of Cue Duration, Age Group, and Cog Assess Score") + 
-  theme(plot.title = element_text(hjust = 0.5))
-```
-
-A regression model of Rec.effect predicted by Cur Duration and Composite Cog Assess score within OAs only:  
-
-```{r}
-# Is there an interaction between AgeGroup and composite Cog Assess score
-
-ANCOVA <- aov_car(Rec.effect ~ enctype*composite + Error(subject/enctype), 
-                  data = df.RecEffects %>% filter(AgeGroup == 'Old'), 
-                  factorize = F, 
-                  include_aov = T)
-
-ANCOVA
-```
-
-```{r}
-# evaluate the trends
-emtrends(ANCOVA$aov, 
-         trt.vs.ctrlk ~ enctype, 
-         var = 'composite') %>%
-  test(adjust = 'none')
-```
-
-```{r}
-# A custom contrast, comparing one and three seconds conditions with the five second condition
-custom_con.emmc <- function(levels){
-  data.frame(`onethree_v_five` = c(-1, -1, 2))
+ttest_and_tidy <- function(dataframe){
+  # run a one sample t-test and tidy up the results
+  test_result <- t.test(x = dataframe$Rec.effect, mu = 0, alternative = 'greater')
+  test_result_tidy <- broom::tidy(test_result)
+  return(test_result_tidy)
 }
 
-# evaluate the trends
-emtrends(ANCOVA$aov, custom_con ~ enctype, var = 'composite') %>%
-  test(adjust = 'none')
+df.RecEffects %>%
+  group_by(AgeGroup, enctype) %>%
+  nest() %>%
+  mutate(TESTRES = map(data, ttest_and_tidy)) %>%
+  unnest(TESTRES) %>%
+  select(-data) %>%
+  # bonferroni correction
+  mutate(p.value = p.adjust(p.value, method = 'bonferroni'))
 ```
 
 # Correlation Amongst Measures
@@ -678,10 +584,10 @@ df.demographics %>%
   left_join(Mean.OA.DF.Effects, by = c('SUBJECT' = 'subject')) %>%
   filter(AGE > 60) -> OA.Only.Demo.Df
 
-order <- c('SYMBOLSEARCH', 'DIGITSYMBOL', 'DIGITSPAN', 'ARITHMETIC', 'LNSEQUENCING', 'VOCAB', 'MMSE', 'AGE', 'DF.effect')
+order <- c('SYMBOLSEARCH', 'DIGITSYMBOL', 'DIGITSPAN', 'ARITHMETIC', 'LNSEQUENCING', 'VOCAB', 'MMSE')
 
 OA.Only.Demo.Df %>%
-  select(MMSE:VOCAB, AGE, DF.effect) %>%
+  select(MMSE:VOCAB) %>%
   corrr::correlate(quiet = T) -> CorMat.df
 ```
 
@@ -723,16 +629,6 @@ df.all %>%
   mutate(enctype = factor(enctype)) %>%
   group_by(AgeGroup, enctype, type, subject) %>%
   summarize(FARate = mean(score == "Know" | score == 'Remember')) %>% ungroup() -> df.FArates
-```
-
-```{r}
-ggplot(df.FArates, aes(x = AgeGroup, y = FARate, fill = AgeGroup)) +
-  stat_summary(geom = 'bar', fun.data = mean_se) +
-  stat_summary(geom = 'errorbar', fun.data = mean_se, width = 0.2) +
-  geom_point() +
-  scale_fill_brewer(palette = "Set2", guide = FALSE) +
-  scale_y_continuous(limits = c(0,1), breaks = seq(0,1,.25)) +
-  labs(x = 'Age Group', y = 'False Alarm Rate', title = 'False Alarm Rates', subtitle = 'As a function of Age Group')
 ```
 
 ```{r}
