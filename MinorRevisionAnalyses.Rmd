@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output: 
+  html_document:
+    df_print: paged
 ---
 
 ```{r echo=FALSE}
@@ -14,9 +16,11 @@ options(knitr.kable.NA = '')
 # spits out from time-to-time
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(paged.print=TRUE)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
+# libraries used
 library('tidyverse')
 library('knitr')
 library('kableExtra')
@@ -31,7 +35,7 @@ df.young        <- read.csv(ya_raw_data_file, quote = "\'")
 df.old          <- read.csv(oa_raw_data_file, quote = "\'")
 ```
 
-```{r}
+```{r paged.print=TRUE}
 # concatenate
 df.all <- bind_rows(list(df.young, df.old), .id = "AgeGroup")
 
