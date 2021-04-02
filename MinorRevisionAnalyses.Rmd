@@ -1,0 +1,152 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r echo=FALSE}
+# makes R print out less digits
+options(scipen = 10, digits = 4)
+
+# makes knitr print blanks when there are NAs
+options(knitr.kable.NA = '')
+
+# removes the damn warning and error messages R randomly
+# spits out from time-to-time
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library('tidyverse')
+library('knitr')
+library('kableExtra')
+library('ez')
+```
+
+```{r}
+# uses the data in the "data" subdirectory of this repostiory
+ya_raw_data_file   <- file.path('data', "ya_raw_data.csv")
+oa_raw_data_file   <- file.path('data', "oa_raw_data.csv")
+df.young        <- read.csv(ya_raw_data_file, quote = "\'")
+df.old          <- read.csv(oa_raw_data_file, quote = "\'")
+```
+
+```{r}
+# concatenate
+df.all <- bind_rows(list(df.young, df.old), .id = "AgeGroup")
+
+# what the raw data looks like
+head(df.all)
+```
+
+```{r}
+# tidy
+df.all %>%
+  select(-jit.1) %>% # dropping extra jitter
+  mutate(
+    enctype  = ifelse(enctype == 1, '1 Second',
+               ifelse(enctype == 3, '3 Seconds', 
+               ifelse(enctype == 5, '5 Seconds', 'Lure'))),
+    enctype  = factor(enctype),
+    score    = ifelse(score == 1, 'Remember',
+               ifelse(score == 2, 'Know',
+               ifelse(score == 3, 'New', 'No Response'))),
+    score    = factor(score),
+    Response = ifelse(Response == 2, 'B Key',
+               ifelse(Response == 22, 'V Key',
+               ifelse(Response == 14, 'N Key', 'No Response'))),
+    Response = factor(Response),
+    type     = ifelse(type == 0, 'To Be Forgotten', 
+               ifelse(type == 1, 'To Be Remembered', 'Lure')),
+    type     = factor(type),
+    AgeGroup = ifelse(AgeGroup == 1, 'Young', 
+               ifelse(AgeGroup == 2, 'Old', NA)),
+    AgeGroup = factor(AgeGroup)
+  ) -> df.all
+
+# what the data looks like, after tidying
+head(df.all)
+```
+
+```{r}
+# this code chunk creates an excel style pivot table:
+# counting the number of occurrences of each score
+# for each condition
+df.all %>%
+  # drop lures
+  filter(enctype != 'Lure') %>%
+  mutate(type = fct_drop(type),
+         enctype = fct_drop(enctype)) %>%
+  count(AgeGroup, subject, type, enctype, score) %>%
+  complete(nesting(AgeGroup, subject), type, enctype, score, fill = list(n = 0)) -> PivotTable
+
+head(PivotTable)
+```
+
++ `AgeGroup` = self-explanatory  
++ `subject` = subject identifier  
++ `type` = TBR/TBF  
++ `enctype` = Cue Duration  
++ `score` = Subject's Response Category  
++ `n` = number of trials  
+
+```{r, warning=FALSE, message=FALSE}
+# calculate rate -- number of trials / total per condition
+PivotTable %>% 
+  group_by(AgeGroup, subject, enctype, type) %>% 
+  mutate(total = sum(n), rate = n / total) %>% 
+  ungroup() -> PivotTable
+
+# inspect
+head(PivotTable)
+```
+
+```{r}
+std <- function(x){
+  # calculates standard error of the mean (se) of vector 'x'
+  sd(x)/sqrt(length(x))
+}
+
+# find the mean, sem across 30 subjects for each condition  
+PivotTable %>%
+  group_by(AgeGroup, type, enctype, score) %>% 
+  summarise(avg.rate = mean(rate), se.rate = std(rate), .groups = 'drop') %>%
+  filter(score != 'No Response') -> PivotTable
+
+# inspect
+head(PivotTable)
+```  
+
+```{r}
+# tidyverse tables are 'long'. In this chunk I am making the table 'wide'
+PivotTable %>%
+  unite(col = 'CueDurxCueType', type, enctype, sep = '-') %>% 
+  mutate(mean_se = str_c(round(avg.rate, 2), ' (', round(se.rate, 2), ')')) %>% 
+  select(-avg.rate, -se.rate) %>%
+  mutate(CueDurxCueType = factor(CueDurxCueType, levels = c('To Be Remembered-1 Second', 'To Be Remembered-3 Seconds', 
+                                                            'To Be Remembered-5 Seconds', 'To Be Forgotten-1 Second', 
+                                                            'To Be Forgotten-3 Seconds', 'To Be Forgotten-5 Seconds'))) %>%
+  arrange(AgeGroup, CueDurxCueType, score) %>%
+  pivot_wider(names_from = CueDurxCueType, values_from = mean_se) %>%
+  mutate(score = fct_drop(score)) %>%
+  mutate(score = fct_relevel(score, c('Remember', 'Know', 'New'))) %>%
+  mutate(AgeGroup = fct_relevel(AgeGroup, c('Young', 'Old'))) %>%
+  arrange(AgeGroup, score)  -> RateTbl
+
+# inspect
+head(RateTbl)
+```
+
+```{r}
+# create a "pretty" version
+RateTbl %>%
+  kable(col.names = c('Age Group', '', '1 sec', '3 sec', '5 sec', '1 sec', '3 sec', '5 sec')) %>%
+  kable_classic() %>%
+  add_header_above(c('', '', 'TBR' = 3, 'TBF' = 3)) %>%
+  collapse_rows(columns = 1, valign = "top") %>%
+  footnote(general = 'Mean (SE). TBF = To Be Forgotten, TBR = To Be Remembered') -> RateTbl
+
+#save_kable(RateTbl, 'KylesRateTable.png') # if you want to save as an image
+
+RateTbl
+```
