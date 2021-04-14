@@ -28,11 +28,11 @@ library('ez')
 ```
 
 ```{r}
-# uses the data in the "data" subdirectory of this repostiory
-ya_raw_data_file   <- file.path('data', "ya_raw_data.csv")
-oa_raw_data_file   <- file.path('data', "oa_raw_data.csv")
-df.young        <- read.csv(ya_raw_data_file, quote = "\'")
-df.old          <- read.csv(oa_raw_data_file, quote = "\'")
+# uses the data in the "data" subdirectory of this repository
+ya_raw_data_file <- file.path('data', "ya_raw_data.csv")
+oa_raw_data_file <- file.path('data', "oa_raw_data.csv")
+df.young <- read.csv(ya_raw_data_file, quote = "\'")
+df.old <- read.csv(oa_raw_data_file, quote = "\'")
 ```
 
 ```{r paged.print=TRUE}
@@ -46,7 +46,7 @@ head(df.all)
 ```{r}
 # tidy
 df.all %>%
-  select(-jit.1) %>% # dropping extra jitter
+  #select(-jit.1) %>% # dropping extra jitter
   mutate(
     enctype  = ifelse(enctype == 1, '1 Second',
                ifelse(enctype == 3, '3 Seconds', 
@@ -102,7 +102,7 @@ PivotTable %>%
   ungroup() -> PivotTable
 
 # inspect
-head(PivotTable)
+PivotTable
 ```
 
 ```{r}

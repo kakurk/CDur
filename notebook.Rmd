@@ -13,6 +13,7 @@ params:
 
 ```{r echo=FALSE}
 options(scipen = 10, digits = 4)
+options(knitr.kable.NA = '')
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
 ```
@@ -29,6 +30,8 @@ library('emmeans')
 library('kableExtra')
 library('magrittr')
 library('afex')
+library('ez')
+library('gghighlight')
 ```
 
 # Load Data
@@ -37,11 +40,9 @@ Load the raw data into R from the `datapath` directory input at the top of the n
 
 ```{r load}
 # Initialize variables
-rootpath           <- params$rootpath
-datapath           <- file.path(rootpath, 'data')
-ya_raw_data_file   <- file.path(datapath, "ya_raw_data.csv")
-oa_raw_data_file   <- file.path(datapath, "oa_raw_data.csv")
-demo_raw_data_file <- file.path(datapath, "demographics.csv")
+ya_raw_data_file   <- file.path('data', "ya_raw_data.csv")
+oa_raw_data_file   <- file.path('data', "oa_raw_data.csv")
+demo_raw_data_file <- file.path('data', "demographics.csv")
 
 # Load data into data frames
 df.young        <- read.csv(ya_raw_data_file, quote = "\'")
@@ -232,8 +233,8 @@ $$DF_{Effect} = p(New|TBF) - p(New|TBR)$$
 
 where:  
 - New = "New" response during the recognition memory test  
-- TBF = Old Image that recieved a "To Be Forgotten" instruction during encoding  
-- TBR = Old Image that recieved a "To Be Remembered" instruction during encoding  
+- TBF = Old Image that received a "To Be Forgotten" instruction during encoding  
+- TBR = Old Image that received a "To Be Remembered" instruction during encoding  
 
 ```{r DF_calculations}
 # Calculate the miss rates
@@ -633,5 +634,279 @@ df.all %>%
 
 ```{r}
 t.test(FARate ~ AgeGroup, data = df.FArates, var.equal = T)
+```
+
+# Full Design Analyses
+
+What is driving the DF-effect?
+
+```{r, warning = FALSE, message = FALSE}
+df.all %>%
+  # drop lures
+  filter(enctype != 'Lure') %>%
+  mutate(type = fct_drop(type),
+         enctype = fct_drop(enctype)) %>%
+  count(AgeGroup, subject, type, enctype, score) %>%
+  complete(nesting(AgeGroup, subject), type, enctype, score, fill = list(n = 0)) -> PivotTable
+
+PivotTable
+```
+
++ `AgeGroup` = self-explanatory  
++ `subject` = subject identifier  
++ `type` = TBR/TBF  
++ `enctype` = Cue Duration  
++ `score` = Subject's Response Category  
++ `n` = number of trials  
+
+```{r}
+# raw data after Kyle's hand-spun tidying (see code above)
+head(df.all)
+```
+
+```{r}
+df.all %>%
+  # drop lures
+  filter(enctype != 'Lure') %>%
+  mutate(type = fct_drop(type),
+         enctype = fct_drop(enctype)) %>%
+  count(AgeGroup, subject, type, enctype, score) %>%
+  complete(nesting(AgeGroup, subject), type, enctype, score, fill = list(n = 0)) -> PivotTable
+
+head(PivotTable)
+```
+
+```{r, warning=FALSE, message=FALSE}
+PivotTable %>% 
+  # calculate rate -- number of trials / total per condition
+  group_by(AgeGroup, subject, enctype, type) %>% 
+  mutate(total = sum(n), rate = n / total) %>% 
+  # find the mean, sem across 30 subjects for each condition
+  ungroup() %>% 
+  group_by(AgeGroup, type, enctype, score) %>% 
+  summarise(avg.rate = mean(rate), se.rate = std(rate), .groups = 'drop') %>%
+  # remove NR trials
+  filter(score != 'No Response') %>%
+  # tidyverse tables are 'long'. In this chunk I am making the table 'wide'
+  unite(col = 'CueDurxCueType', type, enctype, sep = '-') %>% 
+  mutate(mean_se = str_c(round(avg.rate, 2), ' (', round(se.rate, 2), ')')) %>% 
+  select(-avg.rate, -se.rate) %>%
+  mutate(CueDurxCueType = factor(CueDurxCueType, levels = c('To Be Remembered-1 Second', 'To Be Remembered-3 Seconds', 
+                                                            'To Be Remembered-5 Seconds', 'To Be Forgotten-1 Second', 
+                                                            'To Be Forgotten-3 Seconds', 'To Be Forgotten-5 Seconds'))) %>%
+  arrange(AgeGroup, CueDurxCueType, score) %>%
+  pivot_wider(names_from = CueDurxCueType, values_from = mean_se) -> RateTbl
+
+RateTbl %>%
+  mutate(score = fct_drop(score)) %>%
+  mutate(score = fct_relevel(score, c('Remember', 'Know', 'New'))) %>%
+  mutate(AgeGroup = fct_relevel(AgeGroup, c('Young', 'Old'))) %>%
+  arrange(AgeGroup, score) %>%
+  kable(col.names = c('Age Group', '', '1 sec', '3 sec', '5 sec', '1 sec', '3 sec', '5 sec')) %>%
+  kable_classic() %>%
+  add_header_above(c('', '', 'TBR' = 3, 'TBF' = 3)) %>%
+  collapse_rows(columns = 1, valign = "top") %>%
+  footnote(general = 'Mean (SE). TBF = To Be Forgotten, TBR = To Be Remembered') -> RateTbl
+
+save_kable(RateTbl, 'KylesRateTable.png')
+
+RateTbl
+```
+
+
+```{r}
+PivotTable %>%
+  group_by(subject, type, enctype) %>%
+  mutate(rate = n / sum(n)) %>%
+  filter(score == 'New') %>%
+  select(-score) %>%
+  rename(CueDuration = enctype,
+         CueType = type) -> MissRates
+
+head(MissRates)
+```
+
+```{r, warning = FALSE}
+ezANOVA(data = MissRates, 
+        wid = subject, 
+        within = .(CueDuration, CueType), 
+        between = AgeGroup, 
+        dv = rate, 
+        detailed = T, type = 3, return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$ANOVA %>%
+  kable(caption = 'Table 1: Miss Rate ~ AgeGroup, CueType, and CueDuration ANOVA') %>%
+  kable_classic(full_width = FALSE) %>%
+  footnote(general = 'DFn indicates degrees of freedom numerator. DFd indicates degrees of freedom denominator. SSn indicates sum of squares numerator. SSd indicates sum of squares denominator. ges indicates generalized eta-squared.')
+```
+
+## YAs
+
+### TBF ANOVA
+
+```{r}
+MissRates %>%
+  filter(AgeGroup == 'Young') %>%
+  filter(CueType == 'To Be Forgotten') -> Young.TBF.Miss.Rates
+```
+
+```{r, warning = FALSE}
+polyConMat <- matrix(data = c(-1, 0, 1, 1, -2, 1), nrow = 3)
+colnames(polyConMat) <- c('.Linear', '.Quadratic')
+contrasts(Young.TBF.Miss.Rates$CueDuration) <- polyConMat
+
+# TBF ANOVA
+ezANOVA(data = Young.TBF.Miss.Rates,
+        wid = subject,
+        within = CueDuration,
+        dv = n,
+        detailed = T,
+        return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$aov %>%
+  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
+  magrittr::extract2(2) %>%
+  magrittr::extract2(1) %>%
+  as_tibble(rownames = 'Effect') %>%
+  kable(caption = 'Table 1: Miss Rates ~ Cue Duration ANOVA -- Young, TBF items only') %>%
+  kable_classic() %>%
+  add_indent(c(2,3)) %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Young.TBF.ANOVA.Tbl
+
+save_kable(x = Young.TBF.ANOVA.Tbl, file = 'Table1.png')
+
+Young.TBF.ANOVA.Tbl
+```
+
+### TBR ANOVA
+
+```{r, warning=FALSE}
+MissRates %>%
+  filter(AgeGroup == 'Young') %>%
+  filter(CueType == 'To Be Remembered') -> Young.TBR.Miss.Rates
+```
+
+```{r, warning=FALSE}
+# Set contrasts
+polyConMat <- matrix(data = c(-1, 0, 1, 1, -2, 1), nrow = 3)
+colnames(polyConMat) <- c('.Linear', '.Quadratic')
+contrasts(Young.TBR.Miss.Rates$CueDuration) <- polyConMat 
+
+# TBR ANOVA
+ezANOVA(data = Young.TBR.Miss.Rates, 
+        wid = subject, 
+        within = CueDuration, 
+        dv = n, 
+        return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$aov %>%
+  summary() %>%
+  magrittr::extract2(2) %>%
+  magrittr::extract2(1) %>%
+  as_tibble(rownames = 'Effect') %>%
+  kable(caption = 'Table 2: Miss Rates ~ Cue Duration ANOVA-- Young, TBR items only') %>%
+  kable_classic() %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Young.TBR.ANOVA.Tbl
+
+save_kable(x = Young.TBR.ANOVA.Tbl, file = 'Table2.png')
+
+Young.TBR.ANOVA.Tbl
+```
+
+## OAs
+
+### TBF ANOVA
+
+```{r}
+MissRates %>%
+  filter(AgeGroup == 'Old') %>%
+  filter(CueType == 'To Be Forgotten') -> Old.TBF.Miss.Rates
+```
+
+```{r, warning = FALSE}
+polyConMat <- matrix(data = c(-1, 0, 1, 1, -2, 1), nrow = 3)
+colnames(polyConMat) <- c('.Linear', '.Quadratic')
+contrasts(Old.TBF.Miss.Rates$CueDuration) <- polyConMat 
+
+# TBF ANOVA
+ezANOVA(data = Old.TBF.Miss.Rates,
+        wid = subject,
+        within = CueDuration,
+        dv = n,
+        detailed = T,
+        return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$aov %>%
+  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
+  magrittr::extract2(2) %>%
+  magrittr::extract2(1) %>%
+  as_tibble(rownames = 'Effect') %>%
+  kable(caption = 'Table 3: Miss Rates ~ Cue Duration ANOVA -- Old, TBF items only') %>%
+  kable_classic() %>%
+  add_indent(c(2,3)) %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Old.TBF.ANOVA.Tbl
+
+save_kable(Old.TBF.ANOVA.Tbl, 'Table3.png')
+
+Old.TBF.ANOVA.Tbl
+```
+
+### TBR ANOVA
+
+```{r, warning=FALSE}
+MissRates %>%
+  filter(AgeGroup == 'Old') %>%
+  filter(CueType == 'To Be Remembered') -> Old.TBR.Miss.Rates
+```
+
+```{r, warning=FALSE}
+# set polynomial contrasts
+polyConMat <- matrix(data = c(-1, 0, 1, 1, -2, 1), nrow = 3)
+colnames(polyConMat) <- c('.Linear', '.Quadratic')
+contrasts(Old.TBR.Miss.Rates$CueDuration) <- polyConMat 
+
+# TBR ANOVA
+ezANOVA(data = Old.TBR.Miss.Rates, 
+        wid = subject, 
+        within = CueDuration, 
+        dv = n, 
+        return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$aov %>%
+  summary() %>%
+  magrittr::extract2(2) %>%
+  magrittr::extract2(1) %>%
+  as_tibble(rownames = 'Effect') %>%
+  kable(caption = 'Table 4: Miss Rates ~ Cue Duration ANOVA-- Old TBR items only') %>%
+  kable_classic() %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Old.TBR.ANOVA.Tbl
+
+save_kable(Old.TBR.ANOVA.Tbl, 'Table4.png')
+
+Old.TBR.ANOVA.Tbl
+```
+
+### Joint Figure
+
+```{r}
+MissRates %>% 
+  ggplot(aes(x = CueDuration, y = rate, color = CueType)) + 
+  stat_summary(fun.data = mean_se, geom = 'pointrange') +
+  scale_y_continuous(breaks = seq(0.3, 0.6, 0.1)) +
+  facet_grid(~AgeGroup) +
+  scale_color_discrete(labels = c('TBF', 'TBR'), name = 'Cue Type') +
+  expand_limits(y = c(0.3, 0.6)) +
+  theme_classic() +
+  labs(caption = 'Points represent mean collapsed across Age Group. Bars represent +/- SEM', 
+       y = 'Miss Rate', 
+       x = 'Cue Duration',
+       title = 'Miss Rates', 
+       subtitle = 'As a function of Cue Duration and Cue Type') -> Plot
+
+png('MissRateFig.png')
+print(Plot)
+dev.off()
+
+Plot
 ```
 
