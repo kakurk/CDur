@@ -684,6 +684,8 @@ RateTbl
 
 What is driving the increased DF-effect over cue durations? Is is due to _more forgetting of TBF cues_ OR is it due to _less forgetting of TBR cues_?
 
+**Answer:** The increased DF-effect over cue durations is driven by _less forgetting of the TBR cue_, see analyses below:
+
 ```{r}
 PivotTable %>%
   group_by(subject, type, enctype) %>%
@@ -752,7 +754,7 @@ ANOVA.fit$aov %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 2: Miss Rates ~ Cue Duration ANOVA-- Young, TBR items only') %>%
+  kable(caption = 'Table 2: Miss Rates ~ Cue Duration -- Young TBF items only') %>%
   kable_classic() %>%
   footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Young.TBR.ANOVA.Tbl
 
@@ -783,7 +785,7 @@ ANOVA.fit$aov %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 1: Miss Rates ~ Cue Duration ANOVA -- Young, TBF items only') %>%
+  kable(caption = 'Table 1: Miss Rates ~ Cue Duration -- Young TBR items only') %>%
   kable_classic() %>%
   add_indent(c(2,3)) %>%
   footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Young.TBF.ANOVA.Tbl
@@ -817,7 +819,7 @@ ANOVA.fit$aov %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 4: Miss Rates ~ Cue Duration ANOVA-- Old TBR items only') %>%
+  kable(caption = 'Table 4: Miss Rates ~ Cue Duration -- Old TBF items only') %>%
   kable_classic() %>%
   footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Old.TBR.ANOVA.Tbl
 
@@ -848,7 +850,7 @@ ANOVA.fit$aov %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 3: Miss Rates ~ Cue Duration ANOVA -- Old, TBF items only') %>%
+  kable(caption = 'Table 3: Miss Rates ~ Cue Duration ANOVA -- Old TBR items only') %>%
   kable_classic() %>%
   add_indent(c(2,3)) %>%
   footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Old.TBF.ANOVA.Tbl
