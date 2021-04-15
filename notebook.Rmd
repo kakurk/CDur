@@ -7,8 +7,7 @@ output:
     code_folding: hide
     toc: yes
     toc_float: yes
-params:
-  rootpath: ~/Documents/MATLAB/githubrepos/personal-repos/CDur
+    df_print: paged
 ---
 
 ```{r echo=FALSE}
@@ -20,10 +19,10 @@ knitr::opts_chunk$set(message = FALSE)
 
 # Loading Libraries
 
-For the purposes of this notebook, I will be using the `tidyverse` and `knitr` packages.
+I will be using the following packages:
 
 
-```{r libraries}
+```{r libraries, warning=FALSE, message=FALSE}
 library('tidyverse')
 library('knitr')
 library('emmeans')
@@ -36,7 +35,7 @@ library('gghighlight')
 
 # Load Data
 
-Load the raw data into R from the `datapath` directory input at the top of the notebook.  
+Load the raw data into R using relative paths.
 
 ```{r load}
 # Initialize variables
@@ -141,16 +140,16 @@ df.all %>%
                ifelse(enctype == 3, '3 Seconds', 
                ifelse(enctype == 5, '5 Seconds', 'Lure'))),
     enctype  = factor(enctype),
-    score    = ifelse(score == 1, 'Remember',
+    score    = ifelse(score == 1, 'New',
                ifelse(score == 2, 'Know',
-               ifelse(score == 3, 'New', 'No Response'))),
+               ifelse(score == 3, 'Remember', 'No Response'))),
     score    = factor(score),
     Response = ifelse(Response == 2, 'B Key',
                ifelse(Response == 22, 'V Key',
                ifelse(Response == 14, 'N Key', 'No Response'))),
     Response = factor(Response),
-    type     = ifelse(type == 0, 'To Be Forgotten', 
-               ifelse(type == 1, 'To Be Remembered', 'Lure')),
+    type     = ifelse(type == 0, 'To Be Remembered', 
+               ifelse(type == 1, 'To Be Forgotten', 'Lure')),
     type     = factor(type),
     AgeGroup = ifelse(AgeGroup == 1, 'Young', 
                ifelse(AgeGroup == 2, 'Old', NA)),
@@ -158,9 +157,9 @@ df.all %>%
   ) -> df.all
 ```
 
-# Table 1: Demographics Summary
+# Demographics Summary
 
-```{r demographics_summary}
+```{r demographics_summary, warning=FALSE, message=FALSE}
 
 # take the demographics data frame and tidy it
 df.demographics %>%
@@ -237,32 +236,20 @@ where:
 - TBR = Old Image that received a "To Be Remembered" instruction during encoding  
 
 ```{r DF_calculations}
-# Calculate the miss rates
+# Calculate the DF Effect
 df.all %>%
   filter(enctype != "Lure") %>%
-  mutate(enctype = factor(enctype)) %>%
+  mutate(enctype = fct_drop(enctype)) %>%
   group_by(AgeGroup, enctype, type, subject) %>%
-  summarize(MissRate = mean(score == "New")) %>% ungroup() -> df.missrates
-
-# Break the dataframe into TBF and TBR trials
-df.missrates %>% filter(type == "To Be Forgotten") %>% select(-type) -> TBF.Forgotten
-df.missrates %>% filter(type == "To Be Remembered") %>% select(-type) -> TBR.Forgotten
-
-# Merge join the TBF and TBR data frames together, making a "wide" dataframe
-df.DFeffects <- left_join(TBF.Forgotten, TBR.Forgotten, 
-                          by = c('AgeGroup','enctype', 'subject'), 
-                          suffix = c("TBF", "TBR"))
-
-# Calculate the DF-Effect
-df.DFeffects %>%
+  summarise(MissRate = mean(score == "New"), .groups = 'drop') %>%
+  pivot_wider(names_from = type, values_from = MissRate) %>%
   transmute(
-    AgeGroup = AgeGroup,
-    enctype = enctype,
-    subject = subject,
-    DF.effect = MissRateTBF - MissRateTBR) -> df.DFeffects
+    AgeGroup = AgeGroup, 
+    enctype = enctype, 
+    subject = subject, 
+    DF.effect = `To Be Forgotten` - `To Be Remembered`
+    ) -> df.DFeffects
 ```
-
-## Figure 1: Directed Forgetting Results
 
 ```{r}
 # A Visual
@@ -284,8 +271,8 @@ p
 ```
 
 ```{r, echo=FALSE}
-ggsave(file.path(rootpath, 'figures', 'Figure3.png'), 
-      dpi = 300, 
+ggsave(file.path('figures', 'Figure3.png'),
+      dpi = 300,
       width = 7,
       height = 5,
       units = 'in')
@@ -305,8 +292,8 @@ ttest_and_tidy <- function(dataframe){
 
 df.DFeffects %>% 
   group_by(AgeGroup, subject) %>% 
-  summarise(DF.effect = mean(DF.effect)) %>% 
-  nest() %>% 
+  summarise(DF.effect = mean(DF.effect), .groups = 'drop') %>% 
+  nest(data = -AgeGroup) %>% 
   mutate(TESTRES = map(data, ttest_and_tidy)) %>% 
   unnest(TESTRES) %>% 
   select(-data)
@@ -343,122 +330,14 @@ ANOVA <- aov(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.
 summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
 ```
 
-Testing the linear and quadratic trends within each Age Group:
-
-```{r}
-# using polynomial contrast effects coding
-contrasts(df.DFeffects$enctype) <- contr.poly(3)
-
-ANOVA <- aov(DF.effect ~ enctype + Error(subject/enctype), data = df.DFeffects, subset = df.DFeffects$AgeGroup == 'Old')
- 
-summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
-```
-
-```{r}
-# using a "pleatau" effect coding
-contrasts(df.DFeffects$enctype) <- matrix(c(-1, .5, .5, 0, 1, -1), nrow = 3)
-
-ANOVA <- aov(DF.effect ~ enctype + Error(subject/enctype), data = df.DFeffects, subset = df.DFeffects$AgeGroup == 'Young')
- 
-summary(ANOVA, split = list(enctype = list(Pleatau = 1, ThreeVFive = 2)), expand.split = T)
-```
-
-```{r}
-df.DFeffects %>%
-  mutate(enctype.L = recode(enctype,
-                            `1 Second` = -1,
-                            `3 Seconds` = 0,
-                            `5 Seconds` = 1),
-         enctype.P = recode(enctype,
-                            `1 Second` = -1,
-                            `3 Seconds` = .5,
-                            `5 Seconds` = .5)) -> DATA
-
-Linear.Model  <- lm(DF.effect ~ enctype.L, data = DATA, subset = DATA$AgeGroup == 'Young')
-Pleatau.Model <- lm(DF.effect ~ enctype.P, data = DATA, subset = DATA$AgeGroup == 'Young')
-
-bind_rows(broom::glance(Linear.Model), broom::glance(Pleatau.Model), .id = 'model') %>%
-  mutate(model = factor(model, levels = c(1,2), labels = c('Linear', 'Pleatau'))) %>%
-  select(model, r.squared, AIC, everything())
-```
-
-```{r}
-df.DFeffects %>%
-  mutate(enctype.L = recode(enctype, 
-                            `1 Second` = -1,
-                            `3 Seconds` = 0,
-                            `5 Seconds` = 1),
-         enctype.P = recode(enctype, 
-                            `1 Second` = -1,
-                            `3 Seconds` = .5,
-                            `5 Seconds` = .5)) -> DATA
-
-Linear.Model  <- lm(DF.effect ~ enctype.L, data = DATA, subset = DATA$AgeGroup == 'Old')
-Pleatau.Model <- lm(DF.effect ~ enctype.P, data = DATA, subset = DATA$AgeGroup == 'Old')
-
-bind_rows(broom::glance(Linear.Model), broom::glance(Pleatau.Model), .id = 'model') %>%
-  mutate(model = factor(model, levels = c(1,2), labels = c('Linear', 'Pleatau'))) %>%
-  select(model, r.squared, AIC, everything())
-```
-
-## Figure 2: Directed Forgetting and Cog Assess Composite
-
-What do our results look like when we consider baseline cognitive assessment score?
-
-```{r Visual}
-cog.assess.composites <- select(df.demographics.z, SUBJECT, COMPOSITEZSCORE)
-cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
-                                   composite = COMPOSITEZSCORE)
-
-df.DFeffects <- left_join(df.DFeffects, cog.assess.composites, by = "subject")
-
-df.DFeffects %>% 
-  filter(AgeGroup == 'Old') %>%
-  ggplot(aes(y = DF.effect, x = composite, colour = AgeGroup)) + 
-    scale_colour_brewer(palette = "Set2", guide = FALSE) + 
-    geom_point() + 
-    facet_grid(. ~ enctype) + 
-    geom_smooth(method = "lm", 
-                formula = y ~ x, 
-                se = TRUE, 
-                colour = "navyblue", 
-                linetype = "longdash") +
-  labs(y = 'DF-Effect',
-       x = 'Composite Cognitive Assessment Score',
-       title = 'Individual Differences Among Older Adults',
-       subtitle = 'Directed Forgetting Effect')
-```
-
-```{r, echo=FALSE}
-ggsave(file.path(rootpath, 'figures', 'Figure5.png'), 
-      dpi = 300, 
-      width = 7,
-      height = 5,
-      units = 'in')
-```
-
-ANCOVA of DF.effect on Cue Duration and Composite Cog Assess Score within OAs only:  
-
-```{r}
-# Is there an interaction between Age Group and Composite Cog Assess score?
-OAonly.df <- df.DFeffects %>% filter(AgeGroup == 'Old')
-
-contrasts(OAonly.df$enctype) <- matrix(c(-.5, -.5, 1, 1, -1, 0), nrow = 3)
-
-ANCOVA <- aov(DF.effect ~ enctype*composite + Error(subject/enctype),
-              data = OAonly.df)
-
-summary(ANCOVA, split = list(enctype = list(Five_v_OneThree = 1, One_v_Three = 2)))
-```
-
 # Rec Effect
 
 A second question we would like to answer is this: is there a significant `Recollection Effect`? The Recollection Effects operationalized as:  
 
 $$Rec_{Effect} = p(R|TBR) - p(R|TBF)$$
 
-where:
-- R = trials where a recognition probe recieved a "Remember" response in Remember/Know/New recognition.  
+where:  
+- R = trials where a recognition probe received a "Remember" response in Remember/Know/New recognition.  
 - TBR = recognition probes that were previously studied with a To Be Remembered instruction  
 - TBF = recognition probes that were previously studied with a To Be Forgotten instruction  
 
@@ -472,29 +351,15 @@ df.all %>%
   filter(enctype != "Lure") %>%
   mutate(enctype = factor(enctype)) %>%
   group_by(AgeGroup, enctype, type, subject) %>%
-  summarize(RecRate = mean(score == "Remember")) %>% ungroup() -> df.recrates
-
-# Break the dataframe into TBF and TBR
-df.recrates %>% filter(type == "To Be Forgotten") %>% select(-type)  -> TBF.Remembered
-df.recrates %>% filter(type == "To Be Remembered") %>% select(-type) -> TBR.Remembered
-
-# Merge join the TBF and TBR data frames together, making a "wide" dataframe
-df.RecEffects <- left_join(TBF.Remembered, TBR.Remembered, 
-                           by = c('AgeGroup','enctype', 'subject'), 
-                           suffix = c("TBF", "TBR"))
-
-# Calculate the Rec-Effect
-df.RecEffects %>%
+  summarize(RecRate = mean(score == "Remember"), .groups = 'drop') %>%
+  pivot_wider(names_from = type, values_from = RecRate) %>%
   transmute(
     AgeGroup = AgeGroup,
     enctype = enctype,
     subject = subject,
-    Rec.effect = RecRateTBR - RecRateTBF) -> df.RecEffects
+    Rec.effect = `To Be Remembered` - `To Be Forgotten`
+    ) -> df.RecEffects
 ```
-
-## By Condition By Age Group
-
-A visual of the results:  
 
 ```{r}
 # A Visual
@@ -513,24 +378,11 @@ df.RecEffects %>%
 ```
 
 ```{r, echo=FALSE}
-ggsave(file.path(rootpath, 'figures', 'Figure4.png'), 
+ggsave(file.path('figures', 'Figure4.png'), 
       dpi = 300, 
       width = 7,
       height = 5,
       units = 'in')
-```
-
-The **Age Group x Cue Duration ANOVA** table:  
-
-```{r}
-# polynomical effects contrast coding
-contrasts(df.RecEffects$enctype) <- contr.poly(n = 3)
-
-# ANOVA
-ANOVA <- aov(Rec.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.RecEffects)
-
-# Summarize, break into between and repeated factors
-summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = FALSE)
 ```
 
 Separate one sample t-tests for each age group greater than zero:  
@@ -545,8 +397,8 @@ ttest_and_tidy <- function(dataframe){
 
 df.RecEffects %>%
   group_by(AgeGroup, subject) %>%
-  summarise(Rec.effect = mean(Rec.effect)) %>%
-  nest() %>%
+  summarise(Rec.effect = mean(Rec.effect), .groups = 'drop') %>%
+  nest(data = -AgeGroup) %>%
   mutate(TESTRES = map(data, ttest_and_tidy)) %>%
   unnest(TESTRES) %>%
   select(-data)
@@ -570,6 +422,136 @@ df.RecEffects %>%
   mutate(p.value = p.adjust(p.value, method = 'bonferroni'))
 ```
 
+The **Age Group x Cue Duration ANOVA** table:  
+
+```{r}
+# polynomial effects contrast coding
+contrasts(df.RecEffects$enctype) <- contr.poly(n = 3)
+
+# ANOVA
+ANOVA <- aov(Rec.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.RecEffects)
+
+# Summarize, break into between and repeated factors
+summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
+```
+
+**Cue Duration ANOVA (Only OAs)**
+
+```{r}
+# polynomial effects contrast coding
+contrasts(df.RecEffects$enctype) <- contr.poly(n = 3)
+
+# ANOVA
+ANOVA <- aov(Rec.effect ~ enctype + Error(subject/enctype), data = df.RecEffects, subset = df.RecEffects$AgeGroup == 'Old')
+
+# Summarize, break into between and repeated factors
+summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
+```
+
+**Cue Duration ANOVA (Only YAs)**
+
+```{r}
+# polynomial effects contrast coding
+contrasts(df.RecEffects$enctype) <- matrix(c(-1, .5, .5, 0, 1, -1), nrow = 3)
+
+# ANOVA
+ANOVA <- aov(Rec.effect ~ enctype + Error(subject/enctype), data = df.RecEffects, subset = df.RecEffects$AgeGroup == 'Young')
+
+# Summarize, break into between and repeated factors
+summary(ANOVA, split = list(enctype = list(Pleatau = 1, ThreeVFive = 2)), expand.split = T)
+```
+
+**Fit linear regressions with a "Plateau" and a "Linear" coding scheme (Only OAs)**
+
+```{r}
+# Calculate a new variable representing a linear and a Plateau coding scheme
+df.RecEffects %>%
+  mutate(enctype.L = recode(enctype, 
+                            `1 Second` = -1,
+                            `3 Seconds` = 0,
+                            `5 Seconds` = 1),
+         enctype.P = recode(enctype, 
+                            `1 Second` = -1,
+                            `3 Seconds` = .5,
+                            `5 Seconds` = .5)) -> DATA
+
+# Linear Coding Scheme Regression
+Linear.Model  <- lm(Rec.effect ~ enctype.L, data = DATA, subset = DATA$AgeGroup == 'Old')
+
+# Plateau Coding Scheme Regression
+Pleatau.Model <- lm(Rec.effect ~ enctype.P, data = DATA, subset = DATA$AgeGroup == 'Old')
+
+# Model comparisons
+bind_rows(broom::glance(Linear.Model), broom::glance(Pleatau.Model), .id = 'model') %>%
+  mutate(model = factor(model, levels = c(1,2), labels = c('Linear', 'Pleatau'))) %>%
+  select(model, r.squared, AIC, everything())
+```
+
+**Fit linear regressions with a "Plateau" and a "Linear" coding scheme (Only YAs)**
+
+```{r}
+# Calculate a new variable representing a linear and a Plateau coding scheme
+df.RecEffects %>%
+  mutate(enctype.L = recode(enctype,
+                            `1 Second` = -1,
+                            `3 Seconds` = 0,
+                            `5 Seconds` = 1),
+         enctype.P = recode(enctype,
+                            `1 Second` = -1,
+                            `3 Seconds` = .5,
+                            `5 Seconds` = .5)) -> DATA
+
+# Linear Coding Scheme Regression
+Linear.Model  <- lm(Rec.effect ~ enctype.L, data = DATA, subset = DATA$AgeGroup == 'Young')
+
+# Plateau Coding Scheme Regression
+Pleatau.Model <- lm(Rec.effect ~ enctype.P, data = DATA, subset = DATA$AgeGroup == 'Young')
+
+# Model comparisons
+bind_rows(broom::glance(Linear.Model), broom::glance(Pleatau.Model), .id = 'model') %>%
+  mutate(model = factor(model, levels = c(1,2), labels = c('Linear', 'Pleatau'))) %>%
+  select(model, r.squared, AIC, everything())
+```
+
+## With Cog Assessment Measures
+
+```{r}
+cog.assess.composites <- select(df.demographics.z, SUBJECT, COMPOSITEZSCORE)
+cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
+                                   composite = COMPOSITEZSCORE)
+df.RecEffects <- left_join(df.RecEffects, cog.assess.composites, by = "subject")
+```
+
+
+```{r}
+df.RecEffects %>% 
+  filter(AgeGroup == 'Old') %>%
+  ggplot(aes(y = Rec.effect, x = composite, colour = AgeGroup)) + 
+    scale_colour_brewer(palette = "Set2", guide = FALSE) + 
+    geom_point() + 
+    facet_grid(. ~ enctype) + 
+    geom_smooth(method = "lm", 
+                formula = y ~ x, 
+                se = TRUE, 
+                colour = "navyblue", 
+                linetype = "longdash") +
+  labs(y = 'DF-Effect',
+       x = 'Composite Cognitive Assessment Score',
+       title = 'Individual Differences Among Older Adults',
+       subtitle = 'Directed Forgetting Effect')
+```
+
+The **Cue Duration x Composite Cog Assess Score ANCOVA** Table:
+
+```{r}
+# Is there an interaction between Age Group and Composite Cog Assess score?
+contrasts(df.RecEffects$enctype) <- matrix(c(-.5, -.5, 1, 1, -1, 0), nrow = 3)
+
+ANCOVA <- aov(Rec.effect ~ enctype*composite + Error(subject/enctype), data = df.RecEffects, subset = df.RecEffects$AgeGroup == 'Old')
+
+summary(ANCOVA, split = list(enctype = list(Five_v_OneThree = 1, One_v_Three = 2)))
+```
+
 # Correlation Amongst Measures
 
 Correlation Matrix between all of the cognitive assessment tasks for Older Adults.  
@@ -578,7 +560,7 @@ Correlation Matrix between all of the cognitive assessment tasks for Older Adult
 # calculate correlation matrix
 df.DFeffects %>%
   group_by(AgeGroup, subject) %>%
-  summarise(across(DF.effect, mean)) %>%
+  summarise(across(DF.effect, mean), .groups = 'drop') %>%
   filter(AgeGroup == 'Old') -> Mean.OA.DF.Effects
 
 df.demographics %>%
@@ -592,7 +574,7 @@ OA.Only.Demo.Df %>%
   corrr::correlate(quiet = T) -> CorMat.df
 ```
 
-```{r}
+```{r paged.print=FALSE}
 # reorganize and pretty print
 CorMat.df %>%
   select(rowname, all_of(order)) %>%
@@ -601,7 +583,6 @@ CorMat.df %>%
   rownames_to_column() %>%
   corrr::fashion()
 ```
-
 
 ```{r}
 # correlation matrix visual
@@ -624,47 +605,24 @@ CorMat.df %>%
 # False Alarm Rates
 
 ```{r}
-# Calculate False Alarm Rates
+# Calculate False Alarm Rates. We need to recode score.
 df.all %>%
   filter(enctype == "Lure") %>%
-  mutate(enctype = factor(enctype)) %>%
+  mutate(enctype = fct_drop(enctype)) %>%
+  mutate(score = fct_recode(score, Remember = 'New', New = 'Remember')) %>%
   group_by(AgeGroup, enctype, type, subject) %>%
-  summarize(FARate = mean(score == "Know" | score == 'Remember')) %>% ungroup() -> df.FArates
+  summarize(FARate = mean(score == "Know" | score == 'Remember'), .groups = 'drop') -> df.FArates
 ```
 
 ```{r}
 t.test(FARate ~ AgeGroup, data = df.FArates, var.equal = T)
 ```
 
-# Full Design Analyses
+# Rate Table
 
-What is driving the DF-effect?
+Below I calculate the equivalent of an Excel Pivot Table in R
 
 ```{r, warning = FALSE, message = FALSE}
-df.all %>%
-  # drop lures
-  filter(enctype != 'Lure') %>%
-  mutate(type = fct_drop(type),
-         enctype = fct_drop(enctype)) %>%
-  count(AgeGroup, subject, type, enctype, score) %>%
-  complete(nesting(AgeGroup, subject), type, enctype, score, fill = list(n = 0)) -> PivotTable
-
-PivotTable
-```
-
-+ `AgeGroup` = self-explanatory  
-+ `subject` = subject identifier  
-+ `type` = TBR/TBF  
-+ `enctype` = Cue Duration  
-+ `score` = Subject's Response Category  
-+ `n` = number of trials  
-
-```{r}
-# raw data after Kyle's hand-spun tidying (see code above)
-head(df.all)
-```
-
-```{r}
 df.all %>%
   # drop lures
   filter(enctype != 'Lure') %>%
@@ -676,7 +634,16 @@ df.all %>%
 head(PivotTable)
 ```
 
++ `AgeGroup` = self-explanatory  
++ `subject` = subject identifier  
++ `type` = TBR/TBF  
++ `enctype` = Cue Duration  
++ `score` = Subject's Response Category  
++ `n` = number of trials  
+
 ```{r, warning=FALSE, message=FALSE}
+std <- function(x){sd(x)/sqrt(length(n))}
+
 PivotTable %>% 
   # calculate rate -- number of trials / total per condition
   group_by(AgeGroup, subject, enctype, type) %>% 
@@ -702,17 +669,20 @@ RateTbl %>%
   mutate(score = fct_relevel(score, c('Remember', 'Know', 'New'))) %>%
   mutate(AgeGroup = fct_relevel(AgeGroup, c('Young', 'Old'))) %>%
   arrange(AgeGroup, score) %>%
-  kable(col.names = c('Age Group', '', '1 sec', '3 sec', '5 sec', '1 sec', '3 sec', '5 sec')) %>%
+  kable(col.names = c('Age Group', '', '1 sec', '3 sec', '5 sec', '1 sec', '3 sec', '5 sec'), caption = 'Table 2: Rate Table') %>%
   kable_classic() %>%
   add_header_above(c('', '', 'TBR' = 3, 'TBF' = 3)) %>%
   collapse_rows(columns = 1, valign = "top") %>%
   footnote(general = 'Mean (SE). TBF = To Be Forgotten, TBR = To Be Remembered') -> RateTbl
 
-save_kable(RateTbl, 'KylesRateTable.png')
-
 RateTbl
 ```
 
+# Full Design Analyses
+
+## The DF Effect
+
+What is driving the increased DF-effect over cue durations? Is is due to _more forgetting of TBF cues_ OR is it due to _less forgetting of TBR cues_?
 
 ```{r}
 PivotTable %>%
@@ -722,8 +692,24 @@ PivotTable %>%
   select(-score) %>%
   rename(CueDuration = enctype,
          CueType = type) -> MissRates
+```
 
-head(MissRates)
+```{r}
+MissRates %>% 
+  ggplot(aes(x = CueDuration, y = rate, color = CueType)) + 
+  stat_summary(fun.data = mean_se, geom = 'pointrange') +
+  scale_y_continuous(breaks = seq(0.3, 0.6, 0.1)) +
+  facet_grid(~AgeGroup) +
+  scale_color_discrete(labels = c('TBF', 'TBR'), name = 'Cue Type') +
+  expand_limits(y = c(0.3, 0.6)) +
+  theme_classic() +
+  labs(caption = 'Points represent mean collapsed across Age Group. Bars represent +/- SEM', 
+       y = 'Miss Rate', 
+       x = 'Cue Duration',
+       title = 'Miss Rates', 
+       subtitle = 'As a function of Cue Duration and Cue Type') -> Plot
+
+Plot
 ```
 
 ```{r, warning = FALSE}
@@ -740,9 +726,7 @@ ANOVA.fit$ANOVA %>%
   footnote(general = 'DFn indicates degrees of freedom numerator. DFd indicates degrees of freedom denominator. SSn indicates sum of squares numerator. SSd indicates sum of squares denominator. ges indicates generalized eta-squared.')
 ```
 
-## YAs
-
-### TBF ANOVA
+### YAs
 
 ```{r}
 MissRates %>%
@@ -764,21 +748,16 @@ ezANOVA(data = Young.TBF.Miss.Rates,
         return_aov = T) -> ANOVA.fit
 
 ANOVA.fit$aov %>%
-  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
+  summary() %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 1: Miss Rates ~ Cue Duration ANOVA -- Young, TBF items only') %>%
+  kable(caption = 'Table 2: Miss Rates ~ Cue Duration ANOVA-- Young, TBR items only') %>%
   kable_classic() %>%
-  add_indent(c(2,3)) %>%
-  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Young.TBF.ANOVA.Tbl
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Young.TBR.ANOVA.Tbl
 
-save_kable(x = Young.TBF.ANOVA.Tbl, file = 'Table1.png')
-
-Young.TBF.ANOVA.Tbl
+Young.TBR.ANOVA.Tbl
 ```
-
-### TBR ANOVA
 
 ```{r, warning=FALSE}
 MissRates %>%
@@ -800,22 +779,19 @@ ezANOVA(data = Young.TBR.Miss.Rates,
         return_aov = T) -> ANOVA.fit
 
 ANOVA.fit$aov %>%
-  summary() %>%
+  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 2: Miss Rates ~ Cue Duration ANOVA-- Young, TBR items only') %>%
+  kable(caption = 'Table 1: Miss Rates ~ Cue Duration ANOVA -- Young, TBF items only') %>%
   kable_classic() %>%
-  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Young.TBR.ANOVA.Tbl
+  add_indent(c(2,3)) %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Young.TBF.ANOVA.Tbl
 
-save_kable(x = Young.TBR.ANOVA.Tbl, file = 'Table2.png')
-
-Young.TBR.ANOVA.Tbl
+Young.TBF.ANOVA.Tbl
 ```
 
-## OAs
-
-### TBF ANOVA
+### OAs
 
 ```{r}
 MissRates %>%
@@ -837,21 +813,16 @@ ezANOVA(data = Old.TBF.Miss.Rates,
         return_aov = T) -> ANOVA.fit
 
 ANOVA.fit$aov %>%
-  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
+  summary() %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 3: Miss Rates ~ Cue Duration ANOVA -- Old, TBF items only') %>%
+  kable(caption = 'Table 4: Miss Rates ~ Cue Duration ANOVA-- Old TBR items only') %>%
   kable_classic() %>%
-  add_indent(c(2,3)) %>%
-  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Old.TBF.ANOVA.Tbl
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Old.TBR.ANOVA.Tbl
 
-save_kable(Old.TBF.ANOVA.Tbl, 'Table3.png')
-
-Old.TBF.ANOVA.Tbl
+Old.TBR.ANOVA.Tbl
 ```
-
-### TBR ANOVA
 
 ```{r, warning=FALSE}
 MissRates %>%
@@ -873,40 +844,15 @@ ezANOVA(data = Old.TBR.Miss.Rates,
         return_aov = T) -> ANOVA.fit
 
 ANOVA.fit$aov %>%
-  summary() %>%
+  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 4: Miss Rates ~ Cue Duration ANOVA-- Old TBR items only') %>%
+  kable(caption = 'Table 3: Miss Rates ~ Cue Duration ANOVA -- Old, TBF items only') %>%
   kable_classic() %>%
-  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Old.TBR.ANOVA.Tbl
+  add_indent(c(2,3)) %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Old.TBF.ANOVA.Tbl
 
-save_kable(Old.TBR.ANOVA.Tbl, 'Table4.png')
-
-Old.TBR.ANOVA.Tbl
-```
-
-### Joint Figure
-
-```{r}
-MissRates %>% 
-  ggplot(aes(x = CueDuration, y = rate, color = CueType)) + 
-  stat_summary(fun.data = mean_se, geom = 'pointrange') +
-  scale_y_continuous(breaks = seq(0.3, 0.6, 0.1)) +
-  facet_grid(~AgeGroup) +
-  scale_color_discrete(labels = c('TBF', 'TBR'), name = 'Cue Type') +
-  expand_limits(y = c(0.3, 0.6)) +
-  theme_classic() +
-  labs(caption = 'Points represent mean collapsed across Age Group. Bars represent +/- SEM', 
-       y = 'Miss Rate', 
-       x = 'Cue Duration',
-       title = 'Miss Rates', 
-       subtitle = 'As a function of Cue Duration and Cue Type') -> Plot
-
-png('MissRateFig.png')
-print(Plot)
-dev.off()
-
-Plot
+Old.TBF.ANOVA.Tbl
 ```
 
