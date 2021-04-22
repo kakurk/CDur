@@ -213,13 +213,17 @@ table1.demographics %>%
         booktabs = T,
         escape = F, 
         caption = 'Table 1: Participant Demographics') %>%
-  kable_styling() %>%
+  kable_classic() %>%
   footnote(general_title ='\n\nTable 1. ',
            general = 'mean (sd). N = size of sample, AGE = age in years , FEMALE = number of female participants, EDUCATION = years of education. See text for description of the cognitive assessment measures and the calculation of the composite score.\n\n', 
            symbol = 'Two younger adults did not complete the cognitive assessment battery. Means and standard deviations based on the Cognitive Assessment battery reflect 28 complete datasets.',
            alphabet = 'Younger adults were not required to complete the MMSE as part of the cognitive assessment battery.',
            footnote_as_chunk = T, 
-           title_format = 'bold')
+           title_format = 'bold') -> DemoTbl
+
+save_kable(DemoTbl, file = '~/Desktop/DemographicsTbl.png')
+
+DemoTbl
 ```
 
 # DF-Effect
@@ -535,10 +539,10 @@ df.RecEffects %>%
                 se = TRUE, 
                 colour = "navyblue", 
                 linetype = "longdash") +
-  labs(y = 'DF-Effect',
+  labs(y = 'DR-Effect',
        x = 'Composite Cognitive Assessment Score',
        title = 'Individual Differences Among Older Adults',
-       subtitle = 'Directed Forgetting Effect')
+       subtitle = 'Directed Remembering Effect')
 ```
 
 The **Cue Duration x Composite Cog Assess Score ANCOVA** Table:
@@ -685,6 +689,8 @@ RateTbl %>%
   add_header_above(c('', '', 'TBR' = 3, 'TBF' = 3)) %>%
   collapse_rows(columns = 1, valign = "top") %>%
   footnote(general = 'Mean (SE). TBF = To Be Forgotten, TBR = To Be Remembered') -> RateTbl
+
+save_kable(x = RateTbl, file = '~/Desktop/RateTable.png')
 
 RateTbl
 ```
