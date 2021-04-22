@@ -580,6 +580,8 @@ CorMat.df %>%
   select(rowname, all_of(order)) %>%
   column_to_rownames() %>%
   magrittr::extract(order,order) %>%
+  magrittr::set_rownames(str_to_lower(order)) %>%
+  magrittr::set_colnames(str_to_lower(order)) %>%  
   rownames_to_column() %>%
   corrr::fashion()
 ```
@@ -612,6 +614,15 @@ df.all %>%
   mutate(score = fct_recode(score, Remember = 'New', New = 'Remember')) %>%
   group_by(AgeGroup, enctype, type, subject) %>%
   summarize(FARate = mean(score == "Know" | score == 'Remember'), .groups = 'drop') -> df.FArates
+```
+
+```{r}
+df.FArates %>%
+  ggplot(aes(x = AgeGroup, y = FARate)) +
+  geom_point() +
+  scale_fill_discrete(guide = F) +
+  stat_summary(fun.data = mean_se, geom = 'crossbar', aes(fill = AgeGroup), width = 0.2) +
+  labs(title = 'False Alarm Rate', subtitle = 'As a function of Age Group')
 ```
 
 ```{r}
@@ -785,7 +796,7 @@ ANOVA.fit$aov %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 1: Miss Rates ~ Cue Duration -- Young TBR items only') %>%
+  kable(caption = 'Table 3: Miss Rates ~ Cue Duration -- Young TBR items only') %>%
   kable_classic() %>%
   add_indent(c(2,3)) %>%
   footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Young.TBF.ANOVA.Tbl
@@ -850,7 +861,184 @@ ANOVA.fit$aov %>%
   magrittr::extract2(2) %>%
   magrittr::extract2(1) %>%
   as_tibble(rownames = 'Effect') %>%
-  kable(caption = 'Table 3: Miss Rates ~ Cue Duration ANOVA -- Old TBR items only') %>%
+  kable(caption = 'Table 5: Miss Rates ~ Cue Duration ANOVA -- Old TBR items only') %>%
+  kable_classic() %>%
+  add_indent(c(2,3)) %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Old.TBF.ANOVA.Tbl
+
+Old.TBF.ANOVA.Tbl
+```
+
+## The DR Effect
+
+What is driving the increased DR-effect over cue durations? Is is due to _more forgetting of TBF cues_ OR is it due to _less forgetting of TBR cues_?
+
+```{r}
+PivotTable %>%
+  group_by(subject, type, enctype) %>%
+  mutate(rate = n / sum(n)) %>%
+  filter(score == 'Remember') %>%
+  select(-score) %>%
+  rename(CueDuration = enctype,
+         CueType = type) -> RecRates
+```
+
+```{r}
+RecRates %>% 
+  ggplot(aes(x = CueDuration, y = rate, color = CueType)) + 
+  stat_summary(fun.data = mean_se, geom = 'pointrange') +
+  scale_y_continuous(breaks = seq(0.3, 0.6, 0.1)) +
+  facet_grid(~AgeGroup) +
+  scale_color_discrete(labels = c('TBF', 'TBR'), name = 'Cue Type') +
+  expand_limits(y = c(0.3, 0.6)) +
+  theme_classic() +
+  labs(caption = 'Points represent mean collapsed across Age Group. Bars represent +/- SEM', 
+       y = 'Miss Rate', 
+       x = 'Cue Duration',
+       title = 'Miss Rates', 
+       subtitle = 'As a function of Cue Duration and Cue Type') -> Plot
+
+Plot
+```
+
+```{r, warning = FALSE}
+ezANOVA(data = RecRates, 
+        wid = subject, 
+        within = .(CueDuration, CueType), 
+        between = AgeGroup, 
+        dv = rate, 
+        detailed = T, type = 3, return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$ANOVA %>%
+  kable(caption = 'Table 6: Rec Rate ~ AgeGroup, CueType, and CueDuration ANOVA') %>%
+  kable_classic(full_width = FALSE) %>%
+  footnote(general = 'DFn indicates degrees of freedom numerator. DFd indicates degrees of freedom denominator. SSn indicates sum of squares numerator. SSd indicates sum of squares denominator. ges indicates generalized eta-squared.')
+```
+
+### YAs
+
+```{r}
+RecRates %>%
+  filter(AgeGroup == 'Young') %>%
+  filter(CueType == 'To Be Forgotten') -> Young.TBF.Rec.Rates
+```
+
+```{r, warning = FALSE}
+polyConMat <- matrix(data = c(-1, 0, 1, 1, -2, 1), nrow = 3)
+colnames(polyConMat) <- c('.Linear', '.Quadratic')
+contrasts(Young.TBF.Rec.Rates$CueDuration) <- polyConMat
+
+# TBF ANOVA
+ezANOVA(data = Young.TBF.Rec.Rates,
+        wid = subject,
+        within = CueDuration,
+        dv = n,
+        detailed = T,
+        return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$aov %>%
+  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
+  magrittr::extract2(2) %>%
+  magrittr::extract2(1) %>%
+  as_tibble(rownames = 'Effect') %>%
+  kable(caption = 'Table 7: Miss Rates ~ Cue Duration -- Young TBF items only') %>%
+  kable_classic() %>%
+  add_indent(c(2,3)) %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Young.TBR.ANOVA.Tbl
+
+Young.TBR.ANOVA.Tbl
+```
+
+```{r, warning=FALSE}
+RecRates %>%
+  filter(AgeGroup == 'Young') %>%
+  filter(CueType == 'To Be Remembered') -> Young.TBR.Rec.Rates
+```
+
+```{r, warning=FALSE}
+# Set contrasts
+polyConMat <- matrix(data = c(-1, 0, 1, 1, -2, 1), nrow = 3)
+colnames(polyConMat) <- c('.Linear', '.Quadratic')
+contrasts(Young.TBR.Rec.Rates$CueDuration) <- polyConMat 
+
+# TBR ANOVA
+ezANOVA(data = Young.TBR.Rec.Rates, 
+        wid = subject, 
+        within = CueDuration, 
+        dv = n, 
+        return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$aov %>%
+  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
+  magrittr::extract2(2) %>%
+  magrittr::extract2(1) %>%
+  as_tibble(rownames = 'Effect') %>%
+  kable(caption = 'Table 8: Miss Rates ~ Cue Duration -- Young TBR items only') %>%
+  kable_classic() %>%
+  add_indent(c(2,3)) %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Young.TBF.ANOVA.Tbl
+
+Young.TBF.ANOVA.Tbl
+```
+
+### OAs
+
+```{r}
+RecRates %>%
+  filter(AgeGroup == 'Old') %>%
+  filter(CueType == 'To Be Forgotten') -> Old.TBF.Rec.Rates
+```
+
+```{r, warning = FALSE}
+polyConMat <- matrix(data = c(-1, 0, 1, 1, -2, 1), nrow = 3)
+colnames(polyConMat) <- c('.Linear', '.Quadratic')
+contrasts(Old.TBF.Rec.Rates$CueDuration) <- polyConMat 
+
+# TBF ANOVA
+ezANOVA(data = Old.TBF.Rec.Rates,
+        wid = subject,
+        within = CueDuration,
+        dv = n,
+        detailed = T,
+        return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$aov %>%
+  summary() %>%
+  magrittr::extract2(2) %>%
+  magrittr::extract2(1) %>%
+  as_tibble(rownames = 'Effect') %>%
+  kable(caption = 'Table 9: Miss Rates ~ Cue Duration -- Old TBF items only') %>%
+  kable_classic() %>%
+  footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue.') -> Old.TBR.ANOVA.Tbl
+
+Old.TBR.ANOVA.Tbl
+```
+
+```{r, warning=FALSE}
+RecRates %>%
+  filter(AgeGroup == 'Old') %>%
+  filter(CueType == 'To Be Remembered') -> Old.TBR.Rec.Rates
+```
+
+```{r, warning=FALSE}
+# set polynomial contrasts
+polyConMat <- matrix(data = c(-1, 0, 1, 1, -2, 1), nrow = 3)
+colnames(polyConMat) <- c('.Linear', '.Quadratic')
+contrasts(Old.TBR.Rec.Rates$CueDuration) <- polyConMat 
+
+# TBR ANOVA
+ezANOVA(data = Old.TBR.Rec.Rates, 
+        wid = subject, 
+        within = CueDuration, 
+        dv = n, 
+        return_aov = T) -> ANOVA.fit
+
+ANOVA.fit$aov %>%
+  summary(split = list(CueDuration = list(Linear = 1, Quad = 2))) %>%
+  magrittr::extract2(2) %>%
+  magrittr::extract2(1) %>%
+  as_tibble(rownames = 'Effect') %>%
+  kable(caption = 'Table 10: Miss Rates ~ Cue Duration ANOVA -- Old TBR items only') %>%
   kable_classic() %>%
   add_indent(c(2,3)) %>%
   footnote(general = 'Df = degrees of freedom, Sum Sq = sums of squares, Mean Sq = mean square, Pr(>F) = pvalue. Indented rows correspond to orthogonal contrasts. Linear contrast coefficients = (-1, 0, 1). Quadratic contrast coefficients = (1, -2, 1).') -> Old.TBF.ANOVA.Tbl
