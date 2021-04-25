@@ -327,7 +327,108 @@ contrasts(df.DFeffects$enctype) <- contr.poly(3)
 # ANOVA
 ANOVA <- aov(DF.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.DFeffects)
  
+summary(ANOVA)
+```
+
+**Planned contrasts - Old Only, Polynomial**: 
+
+```{r}
+# using polynomial contrast effects coding
+contrasts(df.DFeffects$enctype) <- contr.poly(3)
+
+# Old Only -- Polynomial Contrasts
+ANOVA <- aov(DF.effect ~ enctype + Error(subject/enctype), 
+             data = df.DFeffects, 
+             subset = df.DFeffects$AgeGroup == 'Old')
+ 
 summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
+```
+
+**Planned contrasts - Old Only, Plateau**: 
+
+```{r}
+# using polynomial contrast effects coding
+contrasts(df.DFeffects$enctype) <- matrix(data = c(-1, .5, .5, 0, 1, -1), nrow  = 3, ncol = 2)
+
+# Old Only -- Plateau Contrasts
+ANOVA <- aov(DF.effect ~ enctype + Error(subject/enctype), 
+             data = df.DFeffects, 
+             subset = df.DFeffects$AgeGroup == 'Old')
+ 
+summary(ANOVA, 
+        split = list(enctype = list(Plateau = 1, Three_vs_Five = 2)), 
+        expand.split = T)
+```
+
+**Planned contrasts - Young Only, Polynomial**: 
+
+```{r}
+# using polynomial contrast effects coding
+contrasts(df.DFeffects$enctype) <- contr.poly(3)
+
+# Young Only -- Polynomial Contrasts
+ANOVA <- aov(DF.effect ~ enctype + Error(subject/enctype), 
+             data = df.DFeffects, 
+             subset = df.DFeffects$AgeGroup == 'Young')
+ 
+summary(ANOVA, 
+        split = list(enctype = list(Linear = 1, Quad = 2)), 
+        expand.split = T)
+```
+
+**Planned contrasts - Young Only, Plateau**: 
+
+```{r}
+# using polynomial contrast effects coding
+contrasts(df.DFeffects$enctype) <- matrix(data = c(-1, .5, .5, 0, 1, -1), nrow  = 3, ncol = 2)
+
+# Young Only -- Plateau Contrasts
+ANOVA <- aov(DF.effect ~ enctype + Error(subject/enctype), 
+             data = df.DFeffects, 
+             subset = df.DFeffects$AgeGroup == 'Young')
+ 
+summary(ANOVA, 
+        split = list(enctype = list(Plateau = 1, Three_vs_Five = 2)), 
+        expand.split = T)
+```
+
+### With Cog Assesss Measures
+
+```{r}
+cog.assess.composites <- select(df.demographics.z, SUBJECT, COMPOSITEZSCORE)
+cog.assess.composites <- transmute(cog.assess.composites, subject = SUBJECT, 
+                                   composite = COMPOSITEZSCORE)
+df.DFeffects <- left_join(df.DFeffects, cog.assess.composites, by = "subject")
+```
+
+
+```{r}
+df.DFeffects %>% 
+  filter(AgeGroup == 'Old') %>%
+  ggplot(aes(y = DF.effect, x = composite, colour = AgeGroup)) + 
+    scale_colour_brewer(palette = "Set2", guide = FALSE) + 
+    geom_point() + 
+    facet_grid(. ~ enctype) + 
+    geom_smooth(method = "lm", 
+                formula = y ~ x, 
+                se = TRUE, 
+                colour = "navyblue", 
+                linetype = "longdash") +
+  labs(y = 'DF-Effect',
+       x = 'Composite Cognitive Assessment Score',
+       title = 'Individual Differences Among Older Adults',
+       subtitle = 'Directed Forgetting Effect')
+```
+
+The **Cue Duration x Composite Cog Assess Score ANCOVA** Table:
+
+```{r}
+# Is there an interaction between Age Group and Composite Cog Assess score?
+ANCOVA <- aov(DF.effect ~ enctype*composite + Error(subject/enctype), 
+              data = df.DFeffects, 
+              subset = df.DFeffects$AgeGroup == 'Old')
+
+summary(ANCOVA)
 ```
 
 # Rec Effect
@@ -432,33 +533,71 @@ contrasts(df.RecEffects$enctype) <- contr.poly(n = 3)
 ANOVA <- aov(Rec.effect ~ AgeGroup * enctype + Error(subject/enctype), data = df.RecEffects)
 
 # Summarize, break into between and repeated factors
-summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
+summary(ANOVA)
 ```
 
-**Cue Duration ANOVA (Only OAs)**
+**Polynomial Contrasts -- Only OAs**
 
 ```{r}
 # polynomial effects contrast coding
 contrasts(df.RecEffects$enctype) <- contr.poly(n = 3)
 
 # ANOVA
-ANOVA <- aov(Rec.effect ~ enctype + Error(subject/enctype), data = df.RecEffects, subset = df.RecEffects$AgeGroup == 'Old')
+ANOVA <- aov(Rec.effect ~ enctype + Error(subject/enctype), 
+             data = df.RecEffects, 
+             subset = df.RecEffects$AgeGroup == 'Old')
 
 # Summarize, break into between and repeated factors
 summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
 ```
 
-**Cue Duration ANOVA (Only YAs)**
+**Plateau Contrasts -- Only OAs**
 
 ```{r}
-# polynomial effects contrast coding
+# Plateau effects contrast coding
 contrasts(df.RecEffects$enctype) <- matrix(c(-1, .5, .5, 0, 1, -1), nrow = 3)
 
 # ANOVA
-ANOVA <- aov(Rec.effect ~ enctype + Error(subject/enctype), data = df.RecEffects, subset = df.RecEffects$AgeGroup == 'Young')
+ANOVA <- aov(Rec.effect ~ enctype + Error(subject/enctype), 
+             data = df.RecEffects, 
+             subset = df.RecEffects$AgeGroup == 'Old')
 
 # Summarize, break into between and repeated factors
-summary(ANOVA, split = list(enctype = list(Pleatau = 1, ThreeVFive = 2)), expand.split = T)
+summary(ANOVA, 
+        split = list(enctype = list(Plateau = 1, Three_vs_Five = 2)), 
+        expand.split = T)
+```
+
+**Polynomial Contrasts -- Only YAs**
+
+```{r}
+# polynomial effects contrast coding
+contrasts(df.RecEffects$enctype) <- contr.poly(n = 3)
+
+# ANOVA
+ANOVA <- aov(Rec.effect ~ enctype + Error(subject/enctype), 
+             data = df.RecEffects, 
+             subset = df.RecEffects$AgeGroup == 'Young')
+
+# Summarize, break into between and repeated factors
+summary(ANOVA, split = list(enctype = list(Linear = 1, Quad = 2)), expand.split = T)
+```
+
+**Plateau Contrasts -- Only YAs**
+
+```{r}
+# Plateau effects contrast coding
+contrasts(df.RecEffects$enctype) <- matrix(c(-1, .5, .5, 0, 1, -1), nrow = 3)
+
+# ANOVA
+ANOVA <- aov(Rec.effect ~ enctype + Error(subject/enctype), 
+             data = df.RecEffects, 
+             subset = df.RecEffects$AgeGroup == 'Young')
+
+# Summarize, break into between and repeated factors
+summary(ANOVA, 
+        split = list(enctype = list(Pleatau = 1, ThreeVFive = 2)), 
+        expand.split = T)
 ```
 
 **Fit linear regressions with a "Plateau" and a "Linear" coding scheme (Only OAs)**
@@ -535,10 +674,10 @@ df.RecEffects %>%
                 se = TRUE, 
                 colour = "navyblue", 
                 linetype = "longdash") +
-  labs(y = 'DF-Effect',
+  labs(y = 'DR-Effect',
        x = 'Composite Cognitive Assessment Score',
        title = 'Individual Differences Among Older Adults',
-       subtitle = 'Directed Forgetting Effect')
+       subtitle = 'Directed Remembering Effect')
 ```
 
 The **Cue Duration x Composite Cog Assess Score ANCOVA** Table:
@@ -723,9 +862,13 @@ ezANOVA(data = MissRates,
         detailed = T, type = 3, return_aov = T) -> ANOVA.fit
 
 ANOVA.fit$ANOVA %>%
-  kable(caption = 'Table 1: Miss Rate ~ AgeGroup, CueType, and CueDuration ANOVA') %>%
+  kable(caption = 'Table S1: Miss Rate ~ AgeGroup, CueType, and CueDuration ANOVA') %>%
   kable_classic(full_width = FALSE) %>%
-  footnote(general = 'DFn indicates degrees of freedom numerator. DFd indicates degrees of freedom denominator. SSn indicates sum of squares numerator. SSd indicates sum of squares denominator. ges indicates generalized eta-squared.')
+  footnote(general = 'DFn indicates degrees of freedom numerator. DFd indicates degrees of freedom denominator. SSn indicates sum of squares numerator. SSd indicates sum of squares denominator. ges indicates generalized eta-squared.') -> Tbls1
+
+save_kable(Tbls1, file = 'Supplemental_Tabl1.jpeg')
+
+Tbls1
 ```
 
 ### YAs
