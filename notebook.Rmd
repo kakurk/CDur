@@ -21,7 +21,6 @@ knitr::opts_chunk$set(message = FALSE)
 
 I will be using the following packages:
 
-
 ```{r libraries, warning=FALSE, message=FALSE}
 library('tidyverse')
 library('knitr')
@@ -754,7 +753,9 @@ CorMat.df %>%
 df.all %>%
   filter(enctype == "Lure") %>%
   mutate(enctype = fct_drop(enctype)) %>%
-  mutate(score = fct_recode(score, Remember = 'New', New = 'Remember')) %>%
+  mutate(score = fct_recode(score, 
+                            Remember = 'New', 
+                            New = 'Remember')) %>%
   group_by(AgeGroup, enctype, type, subject) %>%
   summarize(FARate = mean(score == "Know" | score == 'Remember'), .groups = 'drop') -> df.FArates
 ```
@@ -798,19 +799,19 @@ head(PivotTable)
 ```{r, warning=FALSE, message=FALSE}
 std <- function(x){sd(x)/sqrt(length(n))}
 
-PivotTable %>% 
+PivotTable %>%
   # calculate rate -- number of trials / total per condition
-  group_by(AgeGroup, subject, enctype, type) %>% 
-  mutate(total = sum(n), rate = n / total) %>% 
+  group_by(AgeGroup, subject, enctype, type) %>%
+  mutate(total = sum(n), rate = n / total) %>%
   # find the mean, sem across 30 subjects for each condition
-  ungroup() %>% 
-  group_by(AgeGroup, type, enctype, score) %>% 
+  ungroup() %>%
+  group_by(AgeGroup, type, enctype, score) %>%
   summarise(avg.rate = mean(rate), se.rate = std(rate), .groups = 'drop') %>%
   # remove NR trials
   filter(score != 'No Response') %>%
   # tidyverse tables are 'long'. In this chunk I am making the table 'wide'
-  unite(col = 'CueDurxCueType', type, enctype, sep = '-') %>% 
-  mutate(mean_se = str_c(round(avg.rate, 2), ' (', round(se.rate, 2), ')')) %>% 
+  unite(col = 'CueDurxCueType', type, enctype, sep = '-') %>%
+  mutate(mean_se = str_c(round(avg.rate, 2), ' (', round(se.rate, 2), ')')) %>%
   select(-avg.rate, -se.rate) %>%
   mutate(CueDurxCueType = factor(CueDurxCueType, levels = c('To Be Remembered-1 Second', 'To Be Remembered-3 Seconds', 
                                                             'To Be Remembered-5 Seconds', 'To Be Forgotten-1 Second', 
@@ -823,7 +824,8 @@ RateTbl %>%
   mutate(score = fct_relevel(score, c('Remember', 'Know', 'New'))) %>%
   mutate(AgeGroup = fct_relevel(AgeGroup, c('Young', 'Old'))) %>%
   arrange(AgeGroup, score) %>%
-  kable(col.names = c('Age Group', '', '1 sec', '3 sec', '5 sec', '1 sec', '3 sec', '5 sec'), caption = 'Table 2: Rate Table') %>%
+  kable(col.names = c('Age Group', '', '1 sec', '3 sec', '5 sec', '1 sec', '3 sec', '5 sec'), 
+        caption = 'Table 2: Behavioral Response Rates') %>%
   kable_classic() %>%
   add_header_above(c('', '', 'TBR' = 3, 'TBF' = 3)) %>%
   collapse_rows(columns = 1, valign = "top") %>%
@@ -856,12 +858,12 @@ PivotTable %>%
 MissRates %>% 
   ggplot(aes(x = CueDuration, y = rate, color = CueType)) + 
   stat_summary(fun.data = mean_se, geom = 'pointrange') +
-  scale_y_continuous(breaks = seq(0.3, 0.6, 0.1)) +
+  scale_y_continuous(breaks = seq(0, 0.6, 0.1)) +
   facet_grid(~AgeGroup) +
   scale_color_discrete(labels = c('TBF', 'TBR'), name = 'Cue Type') +
-  expand_limits(y = c(0.3, 0.6)) +
+  expand_limits(y = c(0,.6)) +
   theme_classic() +
-  labs(caption = 'Points represent mean collapsed across Age Group. Bars represent +/- SEM', 
+  labs(caption = 'Points represent the mean. Bars represent +/- SEM', 
        y = 'Miss Rate', 
        x = 'Cue Duration',
        title = 'Miss Rates', 
@@ -1036,15 +1038,15 @@ PivotTable %>%
 RecRates %>% 
   ggplot(aes(x = CueDuration, y = rate, color = CueType)) + 
   stat_summary(fun.data = mean_se, geom = 'pointrange') +
-  scale_y_continuous(breaks = seq(0.3, 0.6, 0.1)) +
+  scale_y_continuous(breaks = seq(0, 0.6, 0.1)) +
   facet_grid(~AgeGroup) +
   scale_color_discrete(labels = c('TBF', 'TBR'), name = 'Cue Type') +
-  expand_limits(y = c(0.3, 0.6)) +
+  expand_limits(y = c(0, 0.6)) +
   theme_classic() +
-  labs(caption = 'Points represent mean collapsed across Age Group. Bars represent +/- SEM', 
-       y = 'Miss Rate', 
+  labs(caption = 'Points represent the mean. Bars represent +/- SEM.', 
+       y = 'Recollection Rate', 
        x = 'Cue Duration',
-       title = 'Miss Rates', 
+       title = 'Recollection Rates', 
        subtitle = 'As a function of Cue Duration and Cue Type') -> Plot
 
 Plot
@@ -1059,9 +1061,13 @@ ezANOVA(data = RecRates,
         detailed = T, type = 3, return_aov = T) -> ANOVA.fit
 
 ANOVA.fit$ANOVA %>%
-  kable(caption = 'Table 6: Rec Rate ~ AgeGroup, CueType, and CueDuration ANOVA') %>%
+  kable(caption = 'Table S2: Rec Rate ~ AgeGroup, Cue Type, and Cue Duration ANOVA') %>%
   kable_classic(full_width = FALSE) %>%
-  footnote(general = 'DFn indicates degrees of freedom numerator. DFd indicates degrees of freedom denominator. SSn indicates sum of squares numerator. SSd indicates sum of squares denominator. ges indicates generalized eta-squared.')
+  footnote(general = 'DFn indicates degrees of freedom numerator. DFd indicates degrees of freedom denominator. SSn indicates sum of squares numerator. SSd indicates sum of squares denominator. ges indicates generalized eta-squared.') -> TblS2
+
+save_kable(TblS2, file = 'Supplemental_Table2.jpeg')
+
+TblS2
 ```
 
 ### YAs
